@@ -26,6 +26,10 @@ contract ZealynxLiquidityMineInvariants is StdInvariant, Test {
     address investor = makeAddr("investor");
     address sysAdmin = makeAddr("sysAdmin");
 
+
+    uint256 constant MAX_UINT256 = type(uint256).max;
+    uint256 constant DUST = 1e12;
+
     function setUp() public {
         rewardPerEpoch = 1e18;
         totalRewards = 75_000_000e18;
@@ -53,7 +57,6 @@ contract ZealynxLiquidityMineInvariants is StdInvariant, Test {
 
         assertEq(totalLockedTokens, expectedTotalLockedTokens, "Total locked tokens in contract should be correct");
     }
-
 
     function invariant_RewardDebtConsistency() public {
         for (uint256 i = 0; i < users.length; i++) {
@@ -84,15 +87,60 @@ contract ZealynxLiquidityMineInvariants is StdInvariant, Test {
         assertEq(totalClaimedRewards, lm.rewardTokensClaimed(), "Total claimed rewards should be correct");
     }
 
-function invariant_RewardTokenBalanceConsistency() public {
-    uint256 totalRewardTokenBalance = rewardToken.balanceOf(address(lm));
-    uint256 totalRewardsAccrued = (block.number - lm.lastRewardBlock()) * lm.rewardPerEpoch();
-    uint256 expectedRewardTokenBalance = lm.totalRewardCap() - lm.rewardTokensClaimed() - totalRewardsAccrued;
+    function invariant_RewardTokenBalanceConsistency() public {
+        uint256 totalRewardTokenBalance = rewardToken.balanceOf(address(lm));
+        uint256 totalRewardsAccrued = (block.number - lm.lastRewardBlock()) * lm.rewardPerEpoch();
+        uint256 expectedRewardTokenBalance = lm.totalRewardCap() - lm.rewardTokensClaimed() - totalRewardsAccrued;
 
-    assertEq(totalRewardTokenBalance, expectedRewardTokenBalance, "Reward token balance should be correct");
-}
+        assertEq(totalRewardTokenBalance, expectedRewardTokenBalance, "Reward token balance should be correct");
+    }
 
+    function invariant_TotalRewardConsistency() public {
+        uint256 totalRewardsAccrued = lm.accRewardsTotal();
+        uint256 totalRewardsClaimed = lm.rewardTokensClaimed();
+        uint256 totalRewardsUnclaimed = 0;
 
+        for (uint256 i = 0; i < users.length; i++) {
+            LiquidityMine.UserInfo memory user = lm.userInfo(users[i]);
+            totalRewardsUnclaimed += user.unclaimedRewards;
+        }
+
+        assertEq(
+            totalRewardsAccrued,
+            totalRewardsClaimed + totalRewardsUnclaimed,
+            "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
+        );
+    }
+
+    function invariant_MaxRewardCapConsistency() public {
+        uint256 totalRewardsAccrued = lm.accRewardsTotal();
+        uint256 maxRewardCap = lm.totalRewardCap();
+
+        assertLe(
+            totalRewardsAccrued,
+            maxRewardCap,
+            "Total rewards accrued should not exceed the maximum reward cap"
+        );
+    }
+
+    function invariant_AccRewardsTotalShouldNotExceedTotalRewardCap() public {
+        uint256 accRewardsTotal = lm.accRewardsTotal();
+        uint256 totalRewardCap = lm.totalRewardCap();
+        assertLe(accRewardsTotal, totalRewardCap, "Accrued rewards total should not exceed the total reward cap");
+    }
+
+    function invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal() public {
+        uint256 rewardTokensClaimed = lm.rewardTokensClaimed();
+        uint256 accRewardsTotal = lm.accRewardsTotal();
+        assertLe(rewardTokensClaimed, accRewardsTotal, "Claimed rewards should not exceed the accrued rewards total");
+    }
+
+    function invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap() public {
+        uint256 glfTokenBalance = rewardToken.balanceOf(address(lm));
+        uint256 rewardTokensClaimed = lm.rewardTokensClaimed();
+        uint256 totalRewardCap = lm.totalRewardCap();
+        assertEq(glfTokenBalance + rewardTokensClaimed, totalRewardCap, "GLF token balance plus claimed rewards should equal total reward cap");
+    }
 
     address[] users;
 
@@ -121,93 +169,286 @@ function invariant_RewardTokenBalanceConsistency() public {
         return false;
     }
 
-function testFuzz_InvariantDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public {
-    // Limit the fuzzing range for more reasonable values
-    depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 and 1e24
-    withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 and depositAmount
-    vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
+    function testFuzz_InvariantDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public {
+        // Limit the fuzzing range for more reasonable values
+        depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 and 1e24
+        withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 and depositAmount
+        vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
 
-    // Mint tokens to the beneficiary so they can be deposited
-    MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
-    vm.prank(beneficiary);
-    lockToken.approve(address(lm), depositAmount);
+        // Mint tokens to the beneficiary so they can be deposited
+        MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
+        vm.prank(beneficiary);
+        lockToken.approve(address(lm), depositAmount);
 
-    // Perform the deposit
-    vm.prank(beneficiary);
-    lm.deposit(depositAmount, beneficiary);
+        // Perform the deposit
+        vm.prank(beneficiary);
+        lm.deposit(depositAmount, beneficiary);
 
-    // Add user to the list of users if not already tracked
-    if (!isUserTracked(beneficiary)) {
-        users.push(beneficiary);
+        // Add user to the list of users if not already tracked
+        if (!isUserTracked(beneficiary)) {
+            users.push(beneficiary);
+        }
+
+        // Perform the withdraw
+        vm.prank(beneficiary);
+        lm.withdraw(withdrawAmount, beneficiary);
+
+        // Check invariants
+        invariant_TotalLockedTokensMustBeCorrect();
+        invariant_RewardDebtConsistency();
+        invariant_UnclaimedRewardsConsistency();
+        invariant_TotalRewardTokensClaimed();
+        invariant_RewardTokenBalanceConsistency();
+        invariant_TotalRewardConsistency();
+        invariant_MaxRewardCapConsistency();
+        invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+        invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+        invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
     }
 
-    // Perform the withdraw
-    vm.prank(beneficiary);
-    lm.withdraw(withdrawAmount, beneficiary);
+    function testFuzz_RewardAccumulationAndDistribution(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public {
+        // Limit the fuzzing range for more reasonable values
+        depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 y 1e24
+        withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 y depositAmount
+        vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
 
-    // Check invariants
-    invariant_TotalLockedTokensMustBeCorrect();
-    invariant_RewardDebtConsistency();
-    invariant_UnclaimedRewardsConsistency();
-    invariant_TotalRewardTokensClaimed();
-    invariant_RewardTokenBalanceConsistency();
-}
+        // Mint tokens to the beneficiary so they can be deposited
+        MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
+        vm.prank(beneficiary);
+        lockToken.approve(address(lm), depositAmount);
 
-function testFuzz_RewardAccumulationAndDistribution(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public {
-    // Limit the fuzzing range for more reasonable values
-    depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 y 1e24
-    withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 y depositAmount
-    vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
+        // Perform the deposit
+        vm.prank(beneficiary);
+        lm.deposit(depositAmount, beneficiary);
 
-    // Mint tokens to the beneficiary so they can be deposited
-    MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
-    vm.prank(beneficiary);
-    lockToken.approve(address(lm), depositAmount);
+        // Add user to the list of users if not already tracked
+        if (!isUserTracked(beneficiary)) {
+            users.push(beneficiary);
+        }
 
-    // Perform the deposit
-    vm.prank(beneficiary);
-    lm.deposit(depositAmount, beneficiary);
+        // Simulate passage of time to accumulate rewards
+        uint256 blocksPassed = 1000;
+        vm.roll(block.number + blocksPassed);
 
-    // Add user to the list of users if not already tracked
-    if (!isUserTracked(beneficiary)) {
-        users.push(beneficiary);
+        // Update accounting to reflect the passage of time and accumulated rewards
+        lm.updateAccounting();
+
+        // Perform the withdraw
+        vm.prank(beneficiary);
+        lm.withdraw(withdrawAmount, beneficiary);
+
+        // Verify rewards accumulated correctly
+        LiquidityMine.UserInfo memory user = lm.userInfo(beneficiary);
+        uint256 lockTokenSupply = lockToken.balanceOf(address(lm));
+        if (lockTokenSupply > 0) {
+            uint256 accRewardsPerLockToken = lm.accRewardsPerLockToken();
+            uint256 expectedRewards = (depositAmount - withdrawAmount).mulWadDown(accRewardsPerLockToken) - user.rewardDebt + user.unclaimedRewards;
+            assertEq(user.unclaimedRewards, expectedRewards, "Unclaimed rewards should be correct after withdrawal");
+        }
+
+        // Check invariants
+        invariant_TotalLockedTokensMustBeCorrect();
+        invariant_RewardDebtConsistency();
+        invariant_UnclaimedRewardsConsistency();
+        invariant_TotalRewardTokensClaimed();
+        invariant_RewardTokenBalanceConsistency();
+        invariant_TotalRewardConsistency();
+        invariant_MaxRewardCapConsistency();
+        invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+        invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+        invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
     }
 
-    // Simulate passage of time to accumulate rewards
-    uint256 blocksPassed = 1000;
-    vm.roll(block.number + blocksPassed);
+    function testFuzz_LoadRewards(uint256 amount, address user) public {
+        amount = bound(amount, 1, 1e24); // Limit amount between 1 and 1e24
+        vm.assume(user != address(0) && user != address(lm)); // Assume user is not the zero address or the contract address
 
-    // Update accounting to reflect the passage of time and accumulated rewards
-    lm.updateAccounting();
+        // Mint reward tokens to the user so they can be loaded
+        MintBurnERC20(address(rewardToken)).mint(user, amount);
+        vm.prank(user);
+        rewardToken.approve(address(lm), amount);
 
-    // Perform the withdraw
-    vm.prank(beneficiary);
-    lm.withdraw(withdrawAmount, beneficiary);
+        // Perform the loadRewards
+        vm.prank(user);
+        lm.loadRewards(amount);
 
-    // Verify rewards accumulated correctly
-    LiquidityMine.UserInfo memory user = lm.userInfo(beneficiary);
-    uint256 lockTokenSupply = lockToken.balanceOf(address(lm));
-    if (lockTokenSupply > 0) {
-        uint256 accRewardsPerLockToken = lm.accRewardsPerLockToken();
-        uint256 expectedRewards = (depositAmount - withdrawAmount).mulWadDown(accRewardsPerLockToken) - user.rewardDebt + user.unclaimedRewards;
-        assertEq(user.unclaimedRewards, expectedRewards, "Unclaimed rewards should be correct after withdrawal");
+        // Check invariants
+        invariant_TotalLockedTokensMustBeCorrect();
+        invariant_RewardDebtConsistency();
+        invariant_UnclaimedRewardsConsistency();
+        invariant_TotalRewardTokensClaimed();
+        invariant_RewardTokenBalanceConsistency();
+        invariant_TotalRewardConsistency();
+        invariant_MaxRewardCapConsistency();
+        invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+        invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+        invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
     }
 
-    // Check invariants
-    invariant_TotalLockedTokensMustBeCorrect();
-    invariant_RewardDebtConsistency();
-    invariant_UnclaimedRewardsConsistency();
-    invariant_TotalRewardTokensClaimed();
-    invariant_RewardTokenBalanceConsistency();
-}
+    function testFuzz_Harvest(uint256 depositAmount, uint256 harvestAmount, address beneficiary) public {
+        depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 and 1e24
+        vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
 
+        // Mint tokens to the beneficiary so they can be deposited
+        MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
+        vm.prank(beneficiary);
+        lockToken.approve(address(lm), depositAmount);
 
+        // Perform the deposit
+        vm.prank(beneficiary);
+        lm.deposit(depositAmount, beneficiary);
 
+        // Add user to the list of users if not already tracked
+        if (!isUserTracked(beneficiary)) {
+            users.push(beneficiary);
+        }
 
+        // Simulate passage of time to accumulate rewards
+        uint256 blocksPassed = 1000;
+        vm.roll(block.number + blocksPassed);
 
+        // Update accounting to reflect the passage of time and accumulated rewards
+        lm.updateAccounting();
 
+        // Ensure there are rewards to harvest
+        uint256 pendingRewards = lm.pendingRewards(beneficiary);
+        if (pendingRewards == 0) {
+            return; // Skip this test if no rewards to harvest
+        }
 
+        // Bound the harvest amount to the pending rewards
+        harvestAmount = bound(harvestAmount, 1, pendingRewards);
 
+        // Perform the harvest
+        vm.prank(beneficiary);
+        lm.harvest(harvestAmount, beneficiary);
 
+        // Check invariants
+        invariant_TotalLockedTokensMustBeCorrect();
+        invariant_RewardDebtConsistency();
+        invariant_UnclaimedRewardsConsistency();
+        invariant_TotalRewardTokensClaimed();
+        invariant_RewardTokenBalanceConsistency();
+        invariant_TotalRewardConsistency();
+        invariant_MaxRewardCapConsistency();
+        invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+        invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+        invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
+    }
 
+    function testFuzz_MultiUserDepositHarvest(uint256 accounts, uint256 depositAmount) public {
+        accounts = bound(accounts, 1, 100);
+        depositAmount = bound(depositAmount, 1, 2_000_000_000e18);
+
+        _loadRewards(totalRewards);
+
+        address[] memory localUsers = new address[](accounts);
+
+        // make deposits for each user
+        for (uint256 i = 0; i < accounts; i++) {
+            address user = makeAddr(concatStrings("user", vm.toString(i)));
+            localUsers[i] = user;
+            _depositLockTokens(user, depositAmount);
+        }
+
+        assertRewardCapInvariant("testFuzz_MultiUserDepositHarvest1");
+
+        // pick random users to harvest at 10 random epochs along the way
+        uint256 fundedEpochsLeft = lm.fundedEpochsLeft();
+        uint256 chunks = 10;
+        if (accounts < chunks) {
+            chunks = accounts;
+        }
+        for (uint256 i = 0; i < chunks; i++) {
+            // here we add extra epochs so we roll over the end of the LM to ensure everything works properly
+            vm.roll(block.number + (fundedEpochsLeft / chunks) + 5);
+            address user = localUsers[i];
+            vm.prank(user);
+            lm.harvest(type(uint256).max, user);
+        }
+
+        assertRewardCapInvariant("testFuzz_MultiUserDepositHarvest2");
+
+        // make sure the lm is over
+        assertEq(lm.fundedEpochsLeft(), 0, "fundedEpochsLeft should be 0");
+        // harvest rewards for each user to make sure all rewards are harvested
+        for (uint256 i = 0; i < accounts; i++) {
+            address user = localUsers[i];
+            vm.startPrank(user);
+            uint256 pending = lm.pendingRewards(user);
+            if (pending > 0) {
+                lm.harvest(type(uint256).max, user);
+            } else {
+                try lm.harvest(type(uint256).max, user) {
+                    assertTrue(false, "Should not be able to harvest 0 rewards");
+                } catch {
+                    // expected
+                }
+            }
+            vm.stopPrank();
+            assertApproxEqAbs(
+                rewardToken.balanceOf(user),
+                totalRewards.divWadDown(accounts * 1e18),
+                DUST,
+                "Received Rewards: User should receive proportionate rewards"
+            );
+        }
+
+        assertRewardCapInvariant("testFuzz_MultiUserDepositHarvest3");
+    }
+
+    function _loadRewards(uint256 totalRewardsToDistribute) internal {
+        MintBurnERC20(address(rewardToken)).mint(address(this), totalRewardsToDistribute);
+        rewardToken.approve(address(lm), totalRewardsToDistribute);
+
+        uint256 preloadBal = rewardToken.balanceOf(address(lm));
+        uint256 preloadRewardCap = lm.totalRewardCap();
+        lm.loadRewards(totalRewardsToDistribute);
+        uint256 postloadBal = rewardToken.balanceOf(address(lm));
+        uint256 postloadRewardCap = lm.totalRewardCap();
+
+        assertEq(
+            postloadBal,
+            totalRewardsToDistribute + preloadBal,
+            "Reward token balance should be the total rewards to distribute"
+        );
+        assertEq(
+            postloadRewardCap,
+            preloadRewardCap + totalRewardsToDistribute,
+            "Reward token cap should be the total rewards to distribute"
+        );
+    }
+
+    function _depositLockTokens(address user, uint256 amount) internal {
+        MintBurnERC20(address(lockToken)).mint(user, amount);
+        uint256 preLockTokens = lm.userInfo(user).lockedTokens;
+        vm.startPrank(user);
+        lockToken.approve(address(lm), amount);
+        lm.deposit(amount);
+        vm.stopPrank();
+
+        assertEq(
+            lm.userInfo(user).lockedTokens, preLockTokens + amount, "User locked tokens should be the amount deposited"
+        );
+    }
+
+    function assertRewardCapInvariant(string memory testName) internal {
+        uint256 accRewardsTotal = lm.accRewardsTotal();
+        uint256 totalRewardCap = lm.totalRewardCap();
+        uint256 rewardTokensClaimed = lm.rewardTokensClaimed();
+        uint256 rewardTokenBalance = rewardToken.balanceOf(address(lm));
+
+        // Invariant: The LM accRewardsTotal should always be less than or equal to totalRewardCap
+        assertGe(totalRewardCap, accRewardsTotal, string(abi.encodePacked(testName, ": accRewardsTotal should be <= totalRewardCap")));
+
+        // Invariant: The LM rewardTokensClaimed should always be less than or equal to accRewardsTotal
+        assertGe(accRewardsTotal, rewardTokensClaimed, string(abi.encodePacked(testName, ": rewardTokensClaimed should be <= accRewardsTotal")));
+
+        // Invariant: The LM balanceOf GLF tokens + rewardTokensClaimed should always equal totalRewardCap
+        assertEq(rewardTokenBalance + rewardTokensClaimed, totalRewardCap, string(abi.encodePacked(testName, ": rewardToken balance + rewardTokensClaimed should equal totalRewardCap")));
+    }
+
+    function concatStrings(string memory a, string memory b) internal pure returns (string memory) {
+        return string(abi.encodePacked(a, b));
+    }
 }
