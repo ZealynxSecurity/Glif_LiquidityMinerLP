@@ -39,7 +39,7 @@ def analyze_file(filepath):
     return vulnerabilities
 
 # Función para crear y ejecutar una prueba de fuzzing con Foundry
-def create_and_run_fuzz_test(vulnerabilities, test_dir):
+def create_and_run_fuzz_test(vulnerabilities, test_dir, show_output_in_terminal):
     test_code_template = """
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
@@ -47,14 +47,12 @@ pragma solidity ^0.8.25;
 import {Test, console} from "forge-std/Test.sol";
 
 contract VulnerabilityTest is Test {
-    function fuzzTestVulnerability(uint256 a, uint256 b) public {
-        uint256 boundedA = bound(a, 1, type(uint128).max);  // Asegurar que a esté en un rango seguro
-        uint256 boundedB = bound(b, 1, type(uint128).max);  // Asegurar que b esté en un rango seguro y no sea cero
+    function testfuzzTestVulnerability(uint256 a, uint256 b) public {
+        uint256 boundedA = bound(a, 1, type(uint128).max); 
+        uint256 boundedB = bound(b, 1, type(uint128).max); 
         
-        // Realizar la operación vulnerable
-        uint256 result = (boundedA * 10) / boundedB;
+        uint256 result = (boundedA / boundedB) * 10;
 
-        // Verificar la consistencia
         uint256 expectedResult = (boundedA * 10) / boundedB;
         
         console.log("Bounded A", boundedA);
@@ -70,7 +68,7 @@ contract VulnerabilityTest is Test {
             console.log("Expected Result:", expectedResult);
         }
         
-        assert(result == expectedResult);  // Verificar la consistencia de la operación
+        assert(result == expectedResult); 
     }
 }
 """
@@ -79,9 +77,15 @@ contract VulnerabilityTest is Test {
     with open(test_file_path, 'w') as test_file:
         test_file.write(test_code_template)
 
-    # Ejecutar la prueba con Foundry y mostrar la salida en la terminal
-    result = subprocess.run(["forge", "test", "--mc", "VulnerabilityTest", "--mt", "fuzzTestVulnerability", "-vvvv"], capture_output=True, text=True)
-    return result.stdout
+    if show_output_in_terminal:
+        # Ejecutar la prueba con Foundry y mostrar la salida en la terminal
+        result = subprocess.run(["forge", "test", "--mc", "VulnerabilityTest", "--mt", "testfuzzTestVulnerability", "-vvvv"], text=True)
+        print(result.stdout)
+        return result.stdout
+    else:
+        # Ejecutar la prueba con Foundry y capturar la salida
+        result = subprocess.run(["forge", "test", "--mc", "VulnerabilityTest", "--mt", "fuzzTestVulnerability", "-vvvv"], capture_output=True, text=True)
+        return result.stdout
 
 # Directorio base desde el cual se ejecuta el script
 base_directory = os.getcwd()
@@ -90,18 +94,21 @@ test_directory = os.path.join(base_directory, 'test')
 # Crear el directorio de pruebas si no existe
 os.makedirs(test_directory, exist_ok=True)
 
+# Preguntar al usuario si desea ejecutar las pruebas en la terminal
+show_output_in_terminal = input("Do you want to run the tests in the terminal? (y/n): ").strip().lower() == 'y'
+
 # Buscar todos los archivos Solidity en la carpeta 'src'
 solidity_files = find_solidity_files(base_directory)
 
 # Verificar que se encontraron archivos Solidity
 if not solidity_files:
-    print("No se encontraron archivos Solidity en la carpeta 'src'.")
+    print("No Solidity files found in the 'src' folder.")
     exit(1)
 
 # Analizar cada archivo Solidity
 report = {}
 for solidity_file in solidity_files:
-    print(f'Analizando archivo: {solidity_file}')
+    print(f'Analyzing file: {solidity_file}')
     vulnerabilities = analyze_file(solidity_file)
     if vulnerabilities:
         report[solidity_file] = vulnerabilities
@@ -109,33 +116,34 @@ for solidity_file in solidity_files:
 # Generar el reporte y crear la prueba
 test_results = ""
 if report:
-    print("Vulnerabilidades detectadas:")
+    print("Vulnerabilities detected:")
     for filepath, vulnerabilities in report.items():
-        print(f'\nArchivo: {filepath}')
+        print(f'\nFile: {filepath}')
         for name, line_number, line in vulnerabilities:
-            print(f'  Vulnerabilidad: {name}')
-            print(f'    Línea: {line_number}')
-            print(f'    Código: {line}')
+            print(f'  Vulnerability: {name}')
+            print(f'    Line: {line_number}')
+            print(f'    Code: {line}')
             try:
-                test_results += create_and_run_fuzz_test(vulnerabilities, test_directory)
+                test_results += create_and_run_fuzz_test(vulnerabilities, test_directory, show_output_in_terminal)
             except Exception as e:
                 print(f"Failed to run fuzz test: {e}")
 else:
-    print("No se encontraron vulnerabilidades.")
+    print("No vulnerabilities found.")
 
 # Guardar el reporte en un archivo
 with open('vulnerability_report.txt', 'w') as report_file:
     if report:
-        report_file.write("Vulnerabilidades detectadas:\n")
+        report_file.write("Vulnerabilities detected:\n")
         for filepath, vulnerabilities in report.items():
-            report_file.write(f'\nArchivo: {filepath}\n')
+            report_file.write(f'\nFile: {filepath}\n')
             for name, line_number, line in vulnerabilities:
-                report_file.write(f'  Vulnerabilidad: {name}\n')
-                report_file.write(f'    Línea: {line_number}\n')
-                report_file.write(f'    Código: {line}\n')
-        report_file.write("\nResultados de las pruebas:\n")
-        report_file.write(test_results)
+                report_file.write(f'  Vulnerability: {name}\n')
+                report_file.write(f'    Line: {line_number}\n')
+                report_file.write(f'    Code: {line}\n')
+        if not show_output_in_terminal:
+            report_file.write("\nTest results:\n")
+            report_file.write(test_results)
     else:
-        report_file.write("No se encontraron vulnerabilidades.\n")
+        report_file.write("No vulnerabilities found.\n")
 
-print("\nEl reporte ha sido guardado en 'vulnerability_report.txt'.")
+print("\nThe report has been saved to 'vulnerability_report.txt'.")

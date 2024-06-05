@@ -1,0 +1,1 @@
+{"data":[[0,{"call_type":"FirstLevelCall","caller":"0x68dd4f5ac792eaaa5e36f4f4e0474e0625dc9024","contract":"src/LiquidityMine.sol:LiquidityMine(0xf0c500c078e63f6b9694863d8223eafeca69bfca)","input":"79ba5097","value":"0","source":{"file":"src/LiquidityMine.sol","file_idx":54,"offset":459,"length":11987},"results":""}]]}

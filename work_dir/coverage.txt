@@ -1,0 +1,20 @@
+Contract: lib/solmate/src/test/utils/mocks/MockERC20.sol:MockERC20(0x7045b50794fffd61a2a6f396f4e0db8ef13ddfe2)
+Instruction Coverage: 963/1713 (56.22%) 
+Branch Coverage: 20/72 (27.78%) 
+--------------------------------
+Contract: lib/forge-std/src/Base.sol:CommonBase(0x4200000000000000000000000000000000000006)
+Instruction Coverage: 1021/1057 (96.59%) 
+Branch Coverage: 62/70 (88.57%) 
+--------------------------------
+Contract: test/ZealynxLiquidityMini.t.sol:ZealynxLiquidityMineTest(0xe1a425f1ac34a8a441566f93c82dd730639c8510)
+Instruction Coverage: 819/12596 (6.50%) 
+Branch Coverage: 44/556 (7.91%) 
+--------------------------------
+Contract: src/LiquidityMine.sol:LiquidityMine(0xf0c500c078e63f6b9694863d8223eafeca69bfca)
+Instruction Coverage: 978/2179 (44.88%) 
+Branch Coverage: 46/106 (43.40%) 
+--------------------------------
+Contract: lib/solmate/src/test/utils/mocks/MockERC20.sol:MockERC20(0xcbdcb5956a4917c0c82a870de55697ef4e26f40c)
+Instruction Coverage: 1070/1713 (62.46%) 
+Branch Coverage: 26/72 (36.11%) 
+--------------------------------
