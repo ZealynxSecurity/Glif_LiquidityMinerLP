@@ -1,0 +1,32 @@
+[profile.default]
+src = 'src'
+out = 'out'
+libs = ['lib', 'shim/Mock']
+solc_version = "0.8.20"
+remappings = [
+  "ds-test/=lib/forge-std/lib/ds-test/src/",
+  "forge-std/=lib/forge-std/src/",
+  "@openzeppelin/=lib/openzeppelin-contracts/",
+  "fevmate/=lib/fevmate/contracts/",
+  "solmate/=lib/solmate/src/",
+  "src/=src/",
+  "shim/=shim/Mock/"
+]
+
+[profile.fevm]
+src = 'src'
+out = 'out'
+libs = ['lib', 'shim/FEVM']
+solc_version = "0.8.20"
+remappings = [
+  "ds-test/=lib/forge-std/lib/ds-test/src/",
+  "forge-std/=lib/forge-std/src/",
+  "@openzeppelin/=lib/openzeppelin-contracts/",
+  "fevmate/=lib/fevmate/contracts/",
+  "solmate/=lib/solmate/src/",
+  "src/=src/",
+  "shim/=shim/FEVM/"
+]
+
+[fuzz]
+runs = 1024
