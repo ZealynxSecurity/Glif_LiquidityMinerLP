@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {Test, console} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {LiquidityMine} from "src/LiquidityMine.sol";
-import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
+import {Token} from "src/Token.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -27,14 +27,18 @@ contract ZealynxLiquidityMineInvariants is StdInvariant, Test {
     address sysAdmin = makeAddr("sysAdmin");
 
 
+    // constants
+    uint256 constant DUST = 1e11;
     uint256 constant MAX_UINT256 = type(uint256).max;
-    uint256 constant DUST = 1e12;
+    uint256 constant MAX_FIL = 2_000_000_000e18;
+    uint256 constant EPOCHS_IN_DAY = 2880;
+    uint256 constant EPOCHS_IN_YEAR = EPOCHS_IN_DAY * 365;
 
     function setUp() public {
         rewardPerEpoch = 1e18;
         totalRewards = 75_000_000e18;
-        rewardToken = IERC20(address(new MockERC20("GLIF", "GLF", 18)));
-        lockToken = IERC20(address(new MockERC20("iFIL", "iFIL", 18)));
+        rewardToken = IERC20(address(new Token("GLIF", "GLF", sysAdmin, address(this), address(this))));
+        lockToken = IERC20(address(new Token("iFIL", "iFIL", sysAdmin, address(this), address(this))));
 
         deployBlock = block.number;
         lm = new LiquidityMine(rewardToken, lockToken, rewardPerEpoch, sysAdmin);

@@ -12,12 +12,12 @@ interface MintBurnERC20 is IERC20 {
     function burn(address from, uint256 value) external;
 }
 
-// constants
-uint256 constant DUST = 1e12;
-uint256 constant MAX_UINT256 = type(uint256).max;
-uint256 constant MAX_FIL = 2_000_000_000e18;
-uint256 constant EPOCHS_IN_DAY = 2880;
-uint256 constant EPOCHS_IN_YEAR = EPOCHS_IN_DAY * 365;
+    // constants
+    uint256 constant DUST = 1e11;
+    uint256 constant MAX_UINT256 = type(uint256).max;
+    uint256 constant MAX_FIL = 2_000_000_000e18;
+    uint256 constant EPOCHS_IN_DAY = 2880;
+    uint256 constant EPOCHS_IN_YEAR = EPOCHS_IN_DAY * 365;
 
 contract ZealynxLiquidityMineTest is Test {
     using FixedPointMathLib for uint256;
