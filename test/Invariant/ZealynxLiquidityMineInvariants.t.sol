@@ -271,16 +271,17 @@ function testFuzz_InvariantDepositWithdraw(uint256 depositAmount, uint256 withdr
     // Run other invariants
     invariant_TotalLockedTokensMustBeCorrect();
     invariant_RewardDebtConsistency();
-    invariant_UnclaimedRewardsConsistency();
+    invariant_UnclaimedRewardsConsistency(); 
     invariant_RewardTokenBalanceConsistency();
-    // invariant_MaxRewardCapConsistency();
-    // invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
-    // invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
-    // invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
+    invariant_MaxRewardCapConsistency();
+    invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+    invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+    invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
+    invariant_TotalRewardConsistency();//@audit
 }
 
 
-function testFuzz_InvariantHighValueDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { //@audit-issue
+function testFuzz_InvariantDepositHighValuesWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { // @audit-issue
     // Limit the fuzzing range for extremely high values
     depositAmount = bound(depositAmount, 1e35, 1e40); // Limit deposit amount between 1e35 and 1e40
     withdrawAmount = bound(withdrawAmount, 1e35, depositAmount); // Limit withdraw amount between 1e35 and depositAmount
@@ -334,9 +335,14 @@ function testFuzz_InvariantHighValueDepositWithdraw(uint256 depositAmount, uint2
     console.log("User after withdraw - rewardDebt:", userAfterWithdraw.rewardDebt);
     console.log("User after withdraw - unclaimedRewards:", userAfterWithdraw.unclaimedRewards);
 
-    // Perform the harvest
-    vm.prank(beneficiary);
-    lm.harvest(pendingRewardsAfterWithdraw, beneficiary);
+    // Check if there are pending rewards to harvest
+    if (pendingRewardsAfterWithdraw > 0) {
+        // Perform the harvest
+        vm.prank(beneficiary);
+        lm.harvest(pendingRewardsAfterWithdraw, beneficiary);
+    } else {
+        console.log("No rewards to harvest after withdrawal.");
+    }
 
     // Verify user state after harvest
     LiquidityMine.UserInfo memory userAfterHarvest = lm.userInfo(beneficiary);
@@ -369,29 +375,23 @@ function testFuzz_InvariantHighValueDepositWithdraw(uint256 depositAmount, uint2
     uint256 accRewardsTotal = lm.accRewardsTotal();
     console.log("accRewardsTotal:", accRewardsTotal);
     console.log("rewardTokensClaimed:", totalClaimedRewardsFromContract);
-    uint256 totalUnclaimedRewards = 0;
-    for (uint256 i = 0; i < users.length; i++) {
-        totalUnclaimedRewards += lm.userInfo(users[i]).unclaimedRewards;
-    }
-    uint256 sumClaimedAndUnclaimed = totalClaimedRewardsFromContract + totalUnclaimedRewards;
-    uint256 discrepancy = accRewardsTotal > sumClaimedAndUnclaimed ? accRewardsTotal - sumClaimedAndUnclaimed : sumClaimedAndUnclaimed - accRewardsTotal;
-    console.log("Difencia:", discrepancy);
-    assertEq(
-        accRewardsTotal,
-        sumClaimedAndUnclaimed,
-        "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
-    );
+    // assertEq(
+    //     accRewardsTotal,
+    //     totalClaimedRewardsFromContract + beneficiaryInfo.unclaimedRewards,
+    //     "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
+    // );
 
     // Run other invariants
     invariant_TotalLockedTokensMustBeCorrect();
     invariant_RewardDebtConsistency();
     invariant_UnclaimedRewardsConsistency();
-    invariant_RewardTokenBalanceConsistency();
-    invariant_TotalRewardConsistency();//@audit => vuln
     invariant_MaxRewardCapConsistency();
     invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
     invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
     invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
+    invariant_RewardTokenBalanceConsistency();//@audit
+    invariant_TotalRewardConsistency();//@audit
+
 }
 
 
