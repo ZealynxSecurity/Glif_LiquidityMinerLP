@@ -6,9 +6,6 @@ import {FilAddress} from "fevmate/utils/FilAddress.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {console} from "forge-std/Test.sol";
-
-
 /**
  * @title LiquidityMine
  * @author GLIF
@@ -107,32 +104,28 @@ contract LiquidityMine is Ownable {
     }
 
     /// @notice deposit allows a user to deposit lockTokens into the LM, specifying a beneficiary other than the caller
-function deposit(uint256 amount, address beneficiary) public {
-    updateAccounting();
+    function deposit(uint256 amount, address beneficiary) public {
+        updateAccounting();
 
-    beneficiary = beneficiary.normalize();
-    UserInfo storage user = _userInfo[beneficiary];
+        beneficiary = beneficiary.normalize();
+        UserInfo storage user = _userInfo[beneficiary];
 
-    // when we deposit, if there are locked tokens already, we need to calculate how many unclaimed rewards are eligible for claiming
-    if (user.lockedTokens > 0) {
-        // update beneficiary's unclaimed rewards
-        user.unclaimedRewards = user.unclaimedRewards + user.lockedTokens.mulWadDown(accRewardsPerLockToken) - user.rewardDebt;
+        // when we deposit, if there are locked tokens already, we need to calculate how many unclaimed rewards are eligible for claiming
+        if (user.lockedTokens > 0) {
+            // update beneficiary's unclaimed rewards
+            user.unclaimedRewards =
+                user.unclaimedRewards + user.lockedTokens.mulWadDown(accRewardsPerLockToken) - user.rewardDebt;
+        }
+
+        // update beneficiary's locked tokens
+        user.lockedTokens = user.lockedTokens + amount;
+        // reset the beneficiary's reward debt to account for the accrued rewards
+        user.rewardDebt = accRewardsPerLockToken.mulWadDown(user.lockedTokens);
+        // lockTokens get taken from msg.sender
+        lockToken.transferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(msg.sender, beneficiary, amount, user.lockedTokens);
     }
-
-    console.log("Before deposit - user.unclaimedRewards:", user.unclaimedRewards);
-
-    // update beneficiary's locked tokens
-    user.lockedTokens = user.lockedTokens + amount;
-    // reset the beneficiary's reward debt to account for the accrued rewards
-    user.rewardDebt = accRewardsPerLockToken.mulWadDown(user.lockedTokens);
-    // lockTokens get taken from msg.sender
-    lockToken.transferFrom(msg.sender, address(this), amount);
-
-    console.log("After deposit - user.lockedTokens:", user.lockedTokens);
-    console.log("After deposit - user.rewardDebt:", user.rewardDebt);
-
-    emit Deposit(msg.sender, beneficiary, amount, user.lockedTokens);
-}
 
     /// @notice withdraw allows a user to withdraw lockTokens from the LM, using the msg.sender as the receiver
     function withdraw(uint256 amount) external {
@@ -167,22 +160,15 @@ function deposit(uint256 amount, address beneficiary) public {
     }
 
     /// @notice updateAccounting updates the accruedRewardsPerLockToken, accRewardsTotal, and lastRewardBlock, callable by anyone
-function updateAccounting() public {
-    (uint256 _accRewardsPerLockToken, uint256 _accRewardsTotal, uint256 _lockTokenSupply) = _computeAccRewards();
-    if (block.number > lastRewardBlock) {
-        console.log("Before updateAccounting - accRewardsTotal:", accRewardsTotal);
-        console.log("Before updateAccounting - accRewardsPerLockToken:", accRewardsPerLockToken);
-
-        accRewardsPerLockToken = _accRewardsPerLockToken;
-        accRewardsTotal = _accRewardsTotal;
-        lastRewardBlock = block.number;
-
-        console.log("After updateAccounting - accRewardsTotal:", accRewardsTotal);
-        console.log("After updateAccounting - accRewardsPerLockToken:", accRewardsPerLockToken);
-
-        emit LogUpdateAccounting(uint64(lastRewardBlock), _lockTokenSupply, accRewardsPerLockToken, accRewardsTotal);
+    function updateAccounting() public {
+        (uint256 _accRewardsPerLockToken, uint256 _accRewardsTotal, uint256 _lockTokenSupply) = _computeAccRewards();
+        if (block.number > lastRewardBlock) {
+            accRewardsPerLockToken = _accRewardsPerLockToken;
+            accRewardsTotal = _accRewardsTotal;
+            lastRewardBlock = block.number;
+            emit LogUpdateAccounting(uint64(lastRewardBlock), _lockTokenSupply, accRewardsPerLockToken, accRewardsTotal);
+        }
     }
-}
 
     /// @notice loadRewards pulls reward tokens from the caller into this contract and updates the totalRewardCap
     /// @dev loadRewards triggers an accounting update as to prevent rewards from accruing in blocks where there are no rewards
@@ -220,54 +206,46 @@ function updateAccounting() public {
         return (accRewardsPerLockToken, accRewardsTotal, lockTokenSupply);
     }
 
-function _withdraw(uint256 amount, UserInfo storage user, address receiver) internal {
-    if (user.lockedTokens == 0) revert InsufficientLockedTokens();
+    function _withdraw(uint256 amount, UserInfo storage user, address receiver) internal {
+        if (user.lockedTokens == 0) revert InsufficientLockedTokens();
 
-    if (amount > user.lockedTokens) amount = user.lockedTokens;
+        if (amount > user.lockedTokens) amount = user.lockedTokens;
 
-    // compute the total amount of tokens the user can claim
-    uint256 pending = user.lockedTokens.mulWadDown(accRewardsPerLockToken) + user.unclaimedRewards - user.rewardDebt;
+        // compute the total amount of tokens the user can claim
+        uint256 pending = user.lockedTokens.mulWadDown(accRewardsPerLockToken) + user.unclaimedRewards - user.rewardDebt;
 
-    console.log("Before withdraw - pending:", pending);
-    console.log("Before withdraw - user.lockedTokens:", user.lockedTokens);
-    console.log("Before withdraw - user.rewardDebt:", user.rewardDebt);
-    console.log("Before withdraw - user.unclaimedRewards:", user.unclaimedRewards);
+        user.lockedTokens = user.lockedTokens - amount;
+        user.rewardDebt = user.lockedTokens.mulWadDown(accRewardsPerLockToken);
+        user.unclaimedRewards = pending;
 
-    user.lockedTokens = user.lockedTokens - amount;
-    user.rewardDebt = user.lockedTokens.mulWadDown(accRewardsPerLockToken);
-    user.unclaimedRewards = pending;
+        lockToken.transfer(receiver, amount);
 
-    console.log("After withdraw - user.lockedTokens:", user.lockedTokens);
-    console.log("After withdraw - user.rewardDebt:", user.rewardDebt);
-    console.log("After withdraw - user.unclaimedRewards:", user.unclaimedRewards);
+        emit Withdraw(msg.sender, receiver, amount, pending);
+    }
 
-    lockToken.transfer(receiver, amount);
+    function _harvest(uint256 amount, UserInfo storage user, address receiver) internal {
+        // totalRewardDebt is the total amount of rewards that the user is entitled to based on their locked tokens
+        uint256 totalRewardDebt = user.lockedTokens.mulWadDown(accRewardsPerLockToken);
+        // pending is the total amount of rewards that the user can claim
+        uint256 pending = totalRewardDebt + user.unclaimedRewards - user.rewardDebt;
 
-    emit Withdraw(msg.sender, receiver, amount, pending);
-}
+        if (pending == 0) revert NoRewardsToHarvest();
+        // this should never happen, as we should always have enough rewards in the contract to pay the accrued amount
+        if (rewardToken.balanceOf(address(this)) < pending) revert InsufficientRewardTokenBalance();
 
-function _harvest(uint256 amount, UserInfo storage user, address receiver) internal {
-    uint256 totalRewardDebt = user.lockedTokens.mulWadDown(accRewardsPerLockToken);
-    uint256 pending = totalRewardDebt + user.unclaimedRewards - user.rewardDebt;
+        // if the user tries to harvest more than they're owed, reset harvest amount to the total amount owed
+        if (amount > pending) amount = pending;
+        // update user's unclaimed rewards
+        user.unclaimedRewards = pending - amount;
+        // adjust rewardDebt to the total amount of rewards the user is entitled to now
+        user.rewardDebt = totalRewardDebt;
+        // add the amount to the total rewards claimed
+        rewardTokensClaimed += amount;
 
-    console.log("Before harvest - accRewardsTotal:", accRewardsTotal);
-    console.log("Before harvest - rewardTokensClaimed:", rewardTokensClaimed);
+        rewardToken.transfer(receiver, amount);
 
-    if (pending == 0) revert NoRewardsToHarvest();
-    if (rewardToken.balanceOf(address(this)) < pending) revert InsufficientRewardTokenBalance();
-
-    if (amount > pending) amount = pending;
-    user.unclaimedRewards = pending - amount;
-    user.rewardDebt = totalRewardDebt;
-    rewardTokensClaimed += amount;
-
-    rewardToken.transfer(receiver, amount);
-
-    console.log("After harvest - accRewardsTotal:", accRewardsTotal);
-    console.log("After harvest - rewardTokensClaimed:", rewardTokensClaimed);
-
-    emit Harvest(msg.sender, receiver, amount, user.unclaimedRewards);
-}
+        emit Harvest(msg.sender, receiver, amount, user.unclaimedRewards);
+    }
 
     /// @notice setRewardPerEpoch allows the owner to change the totalRewardCap to continue the LM further
     /// @param _rewardsPerEpoch the new number of reward tokens to issue per block
