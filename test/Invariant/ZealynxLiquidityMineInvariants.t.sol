@@ -258,20 +258,20 @@ function testFuzz_InvariantDepositWithdraw(uint256 depositAmount, uint256 withdr
     console.log("Beneficiary unclaimedRewards:", beneficiaryInfo.unclaimedRewards);
     assertEq(lm.pendingRewards(beneficiary), 0, "Pending rewards after harvest should be zero");
 
-    // uint256 totalRewardsAccrued = lm.accRewardsTotal();
-    // uint256 totalRewardsClaimed = lm.rewardTokensClaimed();
-    // uint256 totalRewardsUnclaimed = 0;
+    uint256 totalRewardsAccrued = lm.accRewardsTotal();
+    uint256 totalRewardsClaimed = lm.rewardTokensClaimed();
+    uint256 totalRewardsUnclaimed = 0;
 
-    // for (uint256 i = 0; i < users.length; i++) {
-    //     LiquidityMine.UserInfo memory user = lm.userInfo(users[i]);
-    //     totalRewardsUnclaimed += user.unclaimedRewards;
-    // }
+    for (uint256 i = 0; i < users.length; i++) {
+        LiquidityMine.UserInfo memory user = lm.userInfo(users[i]);
+        totalRewardsUnclaimed += user.unclaimedRewards;
+    }
 
-    // assertEq(
-    //     totalRewardsAccrued,
-    //     totalRewardsClaimed + totalRewardsUnclaimed,
-    //     "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
-    // );
+    assertEq(
+        totalRewardsAccrued,
+        totalRewardsClaimed + totalRewardsUnclaimed,
+        "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
+    );
 
     // Run other invariants
     invariant_TotalLockedTokensMustBeCorrect();

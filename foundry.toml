@@ -30,3 +30,15 @@ remappings = [
 
 [fuzz]
 runs = 1024
+
+[invariant]
+# Number of runs for each invariant test
+runs = 256
+
+# Depth of each invariant run
+depth = 10
+
+# Whether to fail if a revert occurs during the invariant testing
+fail_on_revert = true
+
+call_override = false   # reentrancy-check
