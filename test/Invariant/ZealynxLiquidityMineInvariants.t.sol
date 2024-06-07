@@ -885,9 +885,358 @@ function testFuzz_InvariantPrecisionDepositWithdraw(uint256 depositAmount, uint2
         "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
     );
 
-
 }
 
+
+
+function testFuzz_InvariantAccRewardsTotalLessThanOrEqualTotalRewardCap(
+    uint256 depositAmount,
+    uint256 withdrawAmount,
+    uint256 rewardAmount,
+    address beneficiary
+) public {
+    // Limit the fuzzing range for more reasonable values
+    depositAmount = bound(depositAmount, 1, 1e24);
+    withdrawAmount = bound(withdrawAmount, 1, depositAmount);
+    rewardAmount = bound(rewardAmount, 1, 1e24);
+    vm.assume(beneficiary != address(0) && beneficiary != address(lm));
+
+    // Mint tokens to the beneficiary so they can be deposited
+    MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
+    vm.prank(beneficiary);
+    lockToken.approve(address(lm), depositAmount);
+
+    // Perform the deposit
+    vm.prank(beneficiary);
+    lm.deposit(depositAmount, beneficiary);
+
+    // Mint tokens to the beneficiary for rewards and give allowance to lm
+    MintBurnERC20(address(rewardToken)).mint(beneficiary, rewardAmount);
+    vm.prank(beneficiary);
+    rewardToken.approve(address(lm), rewardAmount);
+
+    // Load rewards into the contract
+    vm.prank(beneficiary);
+    lm.loadRewards(rewardAmount);
+
+    // Simulate passage of time to accumulate rewards
+    uint256 blocksPassed = 1000;
+    vm.roll(block.number + blocksPassed);
+
+    // Update accounting to reflect the passage of time and accumulated rewards
+    lm.updateAccounting();
+
+    // Perform the withdraw
+    vm.prank(beneficiary);
+    lm.withdraw(withdrawAmount, beneficiary);
+
+    // Calculate pending rewards
+    uint256 pendingRewards = lm.pendingRewards(beneficiary);
+
+    // Ensure there are rewards to harvest
+    if (pendingRewards > 0) {
+        // Perform the harvest
+        vm.prank(beneficiary);
+        lm.harvest(pendingRewards, beneficiary);
+    }
+
+    // Verify invariants
+    assertTrue(
+        lm.accRewardsTotal() <= lm.totalRewardCap(),
+        "Accrued rewards total should be less than or equal to total reward cap"
+    );
+    assertTrue(
+        lm.rewardTokensClaimed() <= lm.accRewardsTotal(),
+        "Total reward tokens claimed should be less than or equal to accrued rewards total"
+    );
+    assertEq(
+        lm.totalRewardCap(),
+        lm.rewardTokensClaimed() + rewardToken.balanceOf(address(lm)),
+        "Total reward cap should equal the sum of claimed rewards and remaining balance in contract"
+    );
+}
+
+function testFuzz_InvariantMultipleOperations(
+    uint256 depositAmount1,
+    uint256 depositAmount2,
+    uint256 withdrawAmount1,
+    uint256 withdrawAmount2,
+    uint256 rewardAmount1,
+    uint256 rewardAmount2,
+    address beneficiary1,
+    address beneficiary2
+) public {
+    // Limit the fuzzing range for more reasonable values
+    depositAmount1 = bound(depositAmount1, 1, 1e24);
+    depositAmount2 = bound(depositAmount2, 1, 1e24);
+    withdrawAmount1 = bound(withdrawAmount1, 1, depositAmount1);
+    withdrawAmount2 = bound(withdrawAmount2, 1, depositAmount2);
+    rewardAmount1 = bound(rewardAmount1, 1, 1e24);
+    rewardAmount2 = bound(rewardAmount2, 1, 1e24);
+    vm.assume(beneficiary1 != address(0) && beneficiary1 != address(lm));
+    vm.assume(beneficiary2 != address(0) && beneficiary2 != address(lm));
+    vm.assume(beneficiary1 != beneficiary2);
+
+    // Mint tokens to the beneficiaries so they can be deposited
+    MintBurnERC20(address(lockToken)).mint(beneficiary1, depositAmount1);
+    MintBurnERC20(address(lockToken)).mint(beneficiary2, depositAmount2);
+    vm.prank(beneficiary1);
+    lockToken.approve(address(lm), depositAmount1);
+    vm.prank(beneficiary2);
+    lockToken.approve(address(lm), depositAmount2);
+
+    // Perform the deposits
+    vm.prank(beneficiary1);
+    lm.deposit(depositAmount1, beneficiary1);
+    vm.prank(beneficiary2);
+    lm.deposit(depositAmount2, beneficiary2);
+
+    // Mint tokens to the beneficiaries for rewards and give allowance to lm
+    MintBurnERC20(address(rewardToken)).mint(beneficiary1, rewardAmount1);
+    MintBurnERC20(address(rewardToken)).mint(beneficiary2, rewardAmount2);
+    vm.prank(beneficiary1);
+    rewardToken.approve(address(lm), rewardAmount1);
+    vm.prank(beneficiary2);
+    rewardToken.approve(address(lm), rewardAmount2);
+
+    // Load rewards into the contract
+    vm.prank(beneficiary1);
+    lm.loadRewards(rewardAmount1);
+    vm.prank(beneficiary2);
+    lm.loadRewards(rewardAmount2);
+
+    // Simulate passage of time to accumulate rewards
+    uint256 blocksPassed = 1000;
+    vm.roll(block.number + blocksPassed);
+
+    // Update accounting to reflect the passage of time and accumulated rewards
+    lm.updateAccounting();
+
+    // Perform the withdrawals
+    vm.prank(beneficiary1);
+    lm.withdraw(withdrawAmount1, beneficiary1);
+    vm.prank(beneficiary2);
+    lm.withdraw(withdrawAmount2, beneficiary2);
+
+    // Calculate pending rewards for both beneficiaries
+    uint256 pendingRewards1 = lm.pendingRewards(beneficiary1);
+    uint256 pendingRewards2 = lm.pendingRewards(beneficiary2);
+
+    // Ensure there are rewards to harvest and perform the harvest
+    if (pendingRewards1 > 0) {
+        vm.prank(beneficiary1);
+        lm.harvest(pendingRewards1, beneficiary1);
+    }
+    if (pendingRewards2 > 0) {
+        vm.prank(beneficiary2);
+        lm.harvest(pendingRewards2, beneficiary2);
+    }
+
+    // Verify invariants
+    assertTrue(
+        lm.accRewardsTotal() <= lm.totalRewardCap(),
+        "Accrued rewards total should be less than or equal to total reward cap"
+    );
+    assertTrue(
+        lm.rewardTokensClaimed() <= lm.accRewardsTotal(),
+        "Total reward tokens claimed should be less than or equal to accrued rewards total"
+    );
+    assertEq(
+        lm.totalRewardCap(),
+        lm.rewardTokensClaimed() + rewardToken.balanceOf(address(lm)),
+        "Total reward cap should equal the sum of claimed rewards and remaining balance in contract"
+    );
+}
+
+function testFuzz_MultipleUsersOperations(
+    uint256 depositAmount,
+    uint256 withdrawAmount,
+    uint256 rewardAmount
+) public {
+    uint256 numberOfParticipants = 500;
+    address[] memory participants = new address[](numberOfParticipants);
+    uint256 blocksPassed = 1000;
+
+    // Limit the fuzzing range for more reasonable values
+    depositAmount = bound(depositAmount, 1 * 1e18, 100 * 1e18);
+    withdrawAmount = bound(withdrawAmount, 1 * 1e18, depositAmount);
+    rewardAmount = bound(rewardAmount, 1 * 1e18, 1000 * 1e18);
+
+    // Generate and set up participants
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        participants[i] = vm.addr(i + 1);
+        vm.assume(participants[i] != address(0) && participants[i] != address(lm));
+
+        // Mint lock tokens to the participants
+        MintBurnERC20(address(lockToken)).mint(participants[i], depositAmount * 2); // Enough for deposit and potential multiple actions
+        vm.prank(participants[i]);
+        lockToken.approve(address(lm), depositAmount * 2);
+    }
+
+    // Mint reward tokens to the first participant to load rewards into the contract
+    MintBurnERC20(address(rewardToken)).mint(participants[0], rewardAmount);
+    vm.prank(participants[0]);
+    rewardToken.approve(address(lm), rewardAmount);
+
+    // Participants perform deposits
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        vm.prank(participants[i]);
+        lm.deposit(depositAmount, participants[i]);
+    }
+
+    // Load rewards into the contract by the first participant
+    vm.prank(participants[0]);
+    lm.loadRewards(rewardAmount);
+
+    // Simulate passage of time to accumulate rewards
+    vm.roll(block.number + blocksPassed);
+
+    // Update accounting to reflect the passage of time and accumulated rewards
+    lm.updateAccounting();
+
+    // Participants perform withdrawals
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        vm.prank(participants[i]);
+        lm.withdraw(withdrawAmount, participants[i]);
+    }
+
+    // Participants harvest their rewards
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        uint256 pendingRewards = lm.pendingRewards(participants[i]);
+        if (pendingRewards > 0) {
+            vm.prank(participants[i]);
+            lm.harvest(pendingRewards, participants[i]);
+        }
+    }
+
+    // Verify invariants
+    assertTrue(
+        lm.accRewardsTotal() <= lm.totalRewardCap(),
+        "Accrued rewards total should be less than or equal to total reward cap"
+    );
+    assertTrue(
+        lm.rewardTokensClaimed() <= lm.accRewardsTotal(),
+        "Total reward tokens claimed should be less than or equal to accrued rewards total"
+    );
+    assertEq(
+        lm.totalRewardCap(),
+        lm.rewardTokensClaimed() + rewardToken.balanceOf(address(lm)),
+        "Total reward cap should equal the sum of claimed rewards and remaining balance in contract"
+    );
+}
+
+
+function testFuzz_RandomUserActionsWithCheck(
+    uint256 depositAmount,
+    uint256 withdrawAmount,
+    uint256 rewardAmount
+) public {
+    uint256 numberOfParticipants = 500;
+    address[] memory participants = new address[](numberOfParticipants);
+    uint256 blocksPassed = 1000;
+
+    // Limit the fuzzing range for more reasonable values
+    depositAmount = bound(depositAmount, 1 * 1e18, 100 * 1e18);
+    withdrawAmount = bound(withdrawAmount, 1 * 1e18, depositAmount);
+    rewardAmount = bound(rewardAmount, 1 * 1e18, 1000 * 1e18);
+
+    // Generate and set up participants
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        participants[i] = vm.addr(i + 1);
+        vm.assume(participants[i] != address(0) && participants[i] != address(lm));
+
+        // Mint lock tokens to the participants
+        MintBurnERC20(address(lockToken)).mint(participants[i], depositAmount * 2); // Enough for deposit and potential multiple actions
+        vm.prank(participants[i]);
+        lockToken.approve(address(lm), depositAmount * 2);
+    }
+
+    // Mint reward tokens to the first participant to load rewards into the contract
+    MintBurnERC20(address(rewardToken)).mint(participants[0], rewardAmount);
+    vm.prank(participants[0]);
+    rewardToken.approve(address(lm), rewardAmount);
+
+    // Load rewards into the contract by the first participant
+    vm.prank(participants[0]);
+    lm.loadRewards(rewardAmount);
+
+    // Simulate passage of time to accumulate rewards
+    vm.roll(block.number + blocksPassed);
+
+    // Update accounting to reflect the passage of time and accumulated rewards
+    lm.updateAccounting();
+
+    // Perform random actions for participants
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        uint256 action = uint256(keccak256(abi.encodePacked(block.timestamp, i))) % 3;
+
+        if (action == 0) {
+            // Perform deposit
+            vm.prank(participants[i]);
+            lm.deposit(depositAmount, participants[i]);
+        } else if (action == 1) {
+            // Perform withdraw only if the user has sufficient locked tokens
+            uint256 userLockedTokens = lm.userInfo(participants[i]).lockedTokens;
+            if (userLockedTokens >= withdrawAmount) {
+                vm.prank(participants[i]);
+                lm.withdraw(withdrawAmount, participants[i]);
+            }
+        } else {
+            // Perform harvest only if the user has pending rewards
+            uint256 pendingRewards = lm.pendingRewards(participants[i]);
+            if (pendingRewards > 0) {
+                vm.prank(participants[i]);
+                lm.harvest(pendingRewards, participants[i]);
+            }
+        }
+    }
+
+    // Simulate additional passage of time to accumulate more rewards
+    vm.roll(block.number + blocksPassed);
+
+    // Update accounting to reflect the passage of time and accumulated rewards
+    lm.updateAccounting();
+
+    // Perform another round of random actions for participants
+    for (uint256 i = 0; i < numberOfParticipants; i++) {
+        uint256 action = uint256(keccak256(abi.encodePacked(block.timestamp, i, "second round"))) % 3;
+
+        if (action == 0) {
+            // Perform deposit
+            vm.prank(participants[i]);
+            lm.deposit(depositAmount, participants[i]);
+        } else if (action == 1) {
+            // Perform withdraw only if the user has sufficient locked tokens
+            uint256 userLockedTokens = lm.userInfo(participants[i]).lockedTokens;
+            if (userLockedTokens >= withdrawAmount) {
+                vm.prank(participants[i]);
+                lm.withdraw(withdrawAmount, participants[i]);
+            }
+        } else {
+            // Perform harvest only if the user has pending rewards
+            uint256 pendingRewards = lm.pendingRewards(participants[i]);
+            if (pendingRewards > 0) {
+                vm.prank(participants[i]);
+                lm.harvest(pendingRewards, participants[i]);
+            }
+        }
+    }
+
+    // Verify invariants
+    assertTrue(
+        lm.accRewardsTotal() <= lm.totalRewardCap(),
+        "Accrued rewards total should be less than or equal to total reward cap"
+    );
+    assertTrue(
+        lm.rewardTokensClaimed() <= lm.accRewardsTotal(),
+        "Total reward tokens claimed should be less than or equal to accrued rewards total"
+    );
+    assertEq(
+        lm.totalRewardCap(),
+        lm.rewardTokensClaimed() + rewardToken.balanceOf(address(lm)),
+        "Total reward cap should equal the sum of claimed rewards and remaining balance in contract"
+    );
+}
 
 
 

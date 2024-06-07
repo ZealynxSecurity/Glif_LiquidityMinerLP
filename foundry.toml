@@ -30,6 +30,7 @@ remappings = [
 
 [fuzz]
 runs = 1024
+max_test_rejects = 1_000_000
 
 [invariant]
 # Number of runs for each invariant test
