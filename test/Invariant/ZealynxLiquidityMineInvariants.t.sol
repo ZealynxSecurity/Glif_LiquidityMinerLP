@@ -646,7 +646,7 @@ function testFuzz_InvariantDepositHighValuesWithdraw(uint256 depositAmount, uint
         return string(abi.encodePacked(a, b));
     }
 
-function testFuzz_InvariantPrecisionDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { 
+function testFuzz_InvariantPrecisionHighDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { 
     // Limit the fuzzing range for more reasonable values
     depositAmount = bound(depositAmount, 1e35, 1e40); // Limit deposit amount between 1e35 and 1e40
     withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 and depositAmount
@@ -750,6 +750,14 @@ function testFuzz_InvariantPrecisionDepositWithdraw(uint256 depositAmount, uint2
     console.log("Total rewards claimed:", totalRewardsClaimed);
     console.log("Total rewards unclaimed:", totalRewardsUnclaimed);
 
+    //@audit-ok (assertRewardCapInvariant)
+    assertEq(
+        lm.totalRewardCap(),
+        totalRewardsClaimed + rewardToken.balanceOf(address(lm)),
+        "Invariant assertRewardCapInvariant: "
+    );
+
+    //@audit-issue
     assertEq(
         totalRewardsAccrued,
         totalRewardsClaimed + totalRewardsUnclaimed,
@@ -862,12 +870,15 @@ function testFuzz_InvariantPrecisionDepositWithdraw(uint256 depositAmount, uint2
     console.log("Total rewards claimed:", totalRewardsClaimed);
     console.log("Total rewards unclaimed:", totalRewardsUnclaimed);
 
+
+    //@audit-ok (assertRewardCapInvariant)
     assertEq(
         lm.totalRewardCap(),
-        lm.rewardTokensClaimed() + rewardToken.balanceOf(address(lm)),
+        totalRewardsClaimed + rewardToken.balanceOf(address(lm)),
         "Invariant assertRewardCapInvariant: "
     );
 
+    //@audit-issue
     assertEq(
         totalRewardsAccrued,
         totalRewardsClaimed + totalRewardsUnclaimed,
