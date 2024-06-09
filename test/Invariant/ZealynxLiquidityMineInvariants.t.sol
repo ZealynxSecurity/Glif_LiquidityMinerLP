@@ -146,6 +146,27 @@ contract ZealynxLiquidityMineInvariants is StdInvariant, Test {
         assertEq(glfTokenBalance + rewardTokensClaimed, totalRewardCap, "GLF token balance plus claimed rewards should equal total reward cap");
     }
 
+function invariant_NoResidualDust() public {
+    uint256 accRewardsTotal = lm.accRewardsTotal();
+    uint256 remainingBalance = rewardToken.balanceOf(address(lm));
+    uint256 totalRewardCap = lm.totalRewardCap();
+
+    console.log("Accrued Rewards Total:", accRewardsTotal);
+    console.log("Reward Tokens Claimed:", lm.rewardTokensClaimed());
+    console.log("Remaining Balance:", remainingBalance);
+    console.log("Total Reward Cap:", totalRewardCap);
+
+    uint256 calculatedSum = accRewardsTotal + remainingBalance;
+
+    console.log("Calculated Sum:", calculatedSum);
+
+    assertEq(
+        totalRewardCap,
+        calculatedSum,
+        "Total Reward Cap should equal the sum of Accrued Rewards Total and Remaining Balance"
+    );
+}
+
     address[] users;
 
     function prepareUser(address user, uint256 amount) internal {
@@ -894,7 +915,7 @@ function testFuzz_InvariantAccRewardsTotalLessThanOrEqualTotalRewardCap(
     uint256 withdrawAmount,
     uint256 rewardAmount,
     address beneficiary
-) public {
+) public { //@audit-ok
     // Limit the fuzzing range for more reasonable values
     depositAmount = bound(depositAmount, 1, 1e24);
     withdrawAmount = bound(withdrawAmount, 1, depositAmount);
@@ -965,7 +986,7 @@ function testFuzz_InvariantMultipleOperations(
     uint256 rewardAmount2,
     address beneficiary1,
     address beneficiary2
-) public {
+) public { //@audit-ok
     // Limit the fuzzing range for more reasonable values
     depositAmount1 = bound(depositAmount1, 1, 1e24);
     depositAmount2 = bound(depositAmount2, 1, 1e24);
@@ -1052,7 +1073,7 @@ function testFuzz_MultipleUsersOperations(
     uint256 depositAmount,
     uint256 withdrawAmount,
     uint256 rewardAmount
-) public {
+) public { //@audit-ok
     uint256 numberOfParticipants = 500;
     address[] memory participants = new address[](numberOfParticipants);
     uint256 blocksPassed = 1000;
@@ -1130,7 +1151,7 @@ function testFuzz_RandomUserActionsWithCheck(
     uint256 depositAmount,
     uint256 withdrawAmount,
     uint256 rewardAmount
-) public {
+) public { //@audit-ok
     uint256 numberOfParticipants = 50;
     address[] memory participants = new address[](numberOfParticipants);
     uint256 blocksPassed = 1000;
@@ -1245,7 +1266,7 @@ function testFuzz_ImprecisionInRewardsDistribution(
     uint256 withdrawAmount,
     uint256 rewardAmount,
     address beneficiary
-) public {
+) public { //@audit-issue => DUST
     // Limit the fuzzing range for larger values to test precision issues
     depositAmount = bound(depositAmount, 1e35, 1e40);
     withdrawAmount = bound(withdrawAmount, 1, depositAmount);
@@ -1325,7 +1346,7 @@ function testFuzz_ImprecisionInRewardsDistribution_NormalValues(
     uint256 withdrawAmount,
     uint256 rewardAmount,
     address beneficiary
-) public {
+) public { //@audit-issue => DUST
     // Limit the fuzzing range for more reasonable values
     depositAmount = bound(depositAmount, 1e6, 1e12);
     withdrawAmount = bound(withdrawAmount, 1, depositAmount);
@@ -1399,11 +1420,12 @@ function testFuzz_ImprecisionInRewardsDistribution_NormalValues(
         "Total Reward Cap should equal the sum of Accrued Rewards Total and Remaining Balance"
     );
 }
+
 function testFuzz_ImprecisionMultiUser(
     uint256 depositAmount,
     uint256 withdrawAmount,
     uint256 rewardAmount
-) public {
+) public { //@audit-issue => DUST
     uint256 numberOfParticipants = 500;
     address[] memory participants = new address[](numberOfParticipants);
     uint256 blocksPassed = 1000;
