@@ -12,6 +12,7 @@ remappings = [
   "src/=src/",
   "shim/=shim/Mock/"
 ]
+extra_output = ["storageLayout", "metadata"]
 
 [profile.fevm]
 src = 'src'

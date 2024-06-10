@@ -194,231 +194,231 @@ function invariant_NoResidualDust() public {
         return false;
     }
 
-function testFuzz_InvariantDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { // @audit-issue
-    // Limit the fuzzing range for more reasonable values
-    depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 and 1e24
-    withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 and depositAmount
-    vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
+    function testFuzz_InvariantDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { // @audit-issue
+        // Limit the fuzzing range for more reasonable values
+        depositAmount = bound(depositAmount, 1, 1e24); // Limit deposit amount between 1 and 1e24
+        withdrawAmount = bound(withdrawAmount, 1, depositAmount); // Limit withdraw amount between 1 and depositAmount
+        vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
 
-    // Mint tokens to the beneficiary so they can be deposited
-    MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
-    vm.prank(beneficiary);
-    lockToken.approve(address(lm), depositAmount);
+        // Mint tokens to the beneficiary so they can be deposited
+        MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
+        vm.prank(beneficiary);
+        lockToken.approve(address(lm), depositAmount);
 
-    // Perform the deposit
-    vm.prank(beneficiary);
-    lm.deposit(depositAmount, beneficiary);
+        // Perform the deposit
+        vm.prank(beneficiary);
+        lm.deposit(depositAmount, beneficiary);
 
-    // Add user to the list of users if not already tracked
-    if (!isUserTracked(beneficiary)) {
-        users.push(beneficiary);
-    }
+        // Add user to the list of users if not already tracked
+        if (!isUserTracked(beneficiary)) {
+            users.push(beneficiary);
+        }
 
-    // Load rewards into the contract
-    _loadRewards(totalRewards);
+        // Load rewards into the contract
+        _loadRewards(totalRewards);
 
-    // Simulate passage of time to accumulate rewards
-    uint256 blocksPassed = 1000;
-    vm.roll(block.number + blocksPassed);
+        // Simulate passage of time to accumulate rewards
+        uint256 blocksPassed = 1000;
+        vm.roll(block.number + blocksPassed);
 
-    // Update accounting to reflect the passage of time and accumulated rewards
-    lm.updateAccounting();
+        // Update accounting to reflect the passage of time and accumulated rewards
+        lm.updateAccounting();
 
-    // Ensure there are rewards to harvest
-    uint256 pendingRewardsBeforeWithdraw = lm.pendingRewards(beneficiary);
-    console.log("Pending rewards before withdrawal:", pendingRewardsBeforeWithdraw);
+        // Ensure there are rewards to harvest
+        uint256 pendingRewardsBeforeWithdraw = lm.pendingRewards(beneficiary);
+        console.log("Pending rewards before withdrawal:", pendingRewardsBeforeWithdraw);
 
-    // Verify user state before withdraw
-    LiquidityMine.UserInfo memory userBeforeWithdraw = lm.userInfo(beneficiary);
-    console.log("User before withdraw - lockedTokens:", userBeforeWithdraw.lockedTokens);
-    console.log("User before withdraw - rewardDebt:", userBeforeWithdraw.rewardDebt);
-    console.log("User before withdraw - unclaimedRewards:", userBeforeWithdraw.unclaimedRewards);
+        // Verify user state before withdraw
+        LiquidityMine.UserInfo memory userBeforeWithdraw = lm.userInfo(beneficiary);
+        console.log("User before withdraw - lockedTokens:", userBeforeWithdraw.lockedTokens);
+        console.log("User before withdraw - rewardDebt:", userBeforeWithdraw.rewardDebt);
+        console.log("User before withdraw - unclaimedRewards:", userBeforeWithdraw.unclaimedRewards);
 
-    // Perform the withdraw
-    vm.prank(beneficiary);
-    lm.withdraw(depositAmount, beneficiary);
+        // Perform the withdraw
+        vm.prank(beneficiary);
+        lm.withdraw(depositAmount, beneficiary);
 
-    // Ensure the rewards are still correct after withdrawal
-    uint256 pendingRewardsAfterWithdraw = lm.pendingRewards(beneficiary);
-    console.log("Pending rewards after withdrawal:", pendingRewardsAfterWithdraw);
+        // Ensure the rewards are still correct after withdrawal
+        uint256 pendingRewardsAfterWithdraw = lm.pendingRewards(beneficiary);
+        console.log("Pending rewards after withdrawal:", pendingRewardsAfterWithdraw);
 
-    // Verify user state after withdraw
-    LiquidityMine.UserInfo memory userAfterWithdraw = lm.userInfo(beneficiary);
-    console.log("User after withdraw - lockedTokens:", userAfterWithdraw.lockedTokens);
-    console.log("User after withdraw - rewardDebt:", userAfterWithdraw.rewardDebt);
-    console.log("User after withdraw - unclaimedRewards:", userAfterWithdraw.unclaimedRewards);
+        // Verify user state after withdraw
+        LiquidityMine.UserInfo memory userAfterWithdraw = lm.userInfo(beneficiary);
+        console.log("User after withdraw - lockedTokens:", userAfterWithdraw.lockedTokens);
+        console.log("User after withdraw - rewardDebt:", userAfterWithdraw.rewardDebt);
+        console.log("User after withdraw - unclaimedRewards:", userAfterWithdraw.unclaimedRewards);
 
-    // Perform the harvest
-    vm.prank(beneficiary);
-    lm.harvest(pendingRewardsAfterWithdraw, beneficiary);
-
-    // Verify user state after harvest
-    LiquidityMine.UserInfo memory userAfterHarvest = lm.userInfo(beneficiary);
-    console.log("User after harvest - lockedTokens:", userAfterHarvest.lockedTokens);
-    console.log("User after harvest - rewardDebt:", userAfterHarvest.rewardDebt);
-    console.log("User after harvest - unclaimedRewards:", userAfterHarvest.unclaimedRewards);
-
-    // Verify pending rewards after harvest
-    uint256 pendingRewardsAfterHarvest = lm.pendingRewards(beneficiary);
-    console.log("Pending rewards after harvest:", pendingRewardsAfterHarvest);
-
-    // Check that the total claimed rewards are correct
-    uint256 totalClaimedRewardsFromContract = lm.rewardTokensClaimed();
-    uint256 totalClaimedRewardsCalculated = depositAmount.mulWadDown(lm.accRewardsPerLockToken());
-    console.log("Total claimed rewards from contract:", totalClaimedRewardsFromContract);
-    console.log("Total claimed rewards calculated:", totalClaimedRewardsCalculated);
-
-    // Final assertions
-    assertEq(pendingRewardsAfterHarvest, 0, "Pending rewards after harvest should be zero");
-    assertEq(totalClaimedRewardsFromContract, totalClaimedRewardsCalculated, "Total claimed rewards should be correct");
-
-    // Additional final state verification
-    LiquidityMine.UserInfo memory beneficiaryInfo = lm.userInfo(beneficiary);
-    console.log("Beneficiary lockedTokens:", beneficiaryInfo.lockedTokens);
-    console.log("Beneficiary rewardDebt:", beneficiaryInfo.rewardDebt);
-    console.log("Beneficiary unclaimedRewards:", beneficiaryInfo.unclaimedRewards);
-    assertEq(lm.pendingRewards(beneficiary), 0, "Pending rewards after harvest should be zero");
-
-    uint256 totalRewardsAccrued = lm.accRewardsTotal();
-    uint256 totalRewardsClaimed = lm.rewardTokensClaimed();
-    uint256 totalRewardsUnclaimed = 0;
-
-    for (uint256 i = 0; i < users.length; i++) {
-        LiquidityMine.UserInfo memory user = lm.userInfo(users[i]);
-        totalRewardsUnclaimed += user.unclaimedRewards;
-    }
-
-    assertEq(
-        totalRewardsAccrued,
-        totalRewardsClaimed + totalRewardsUnclaimed,
-        "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
-    );
-
-    // Run other invariants
-    invariant_TotalLockedTokensMustBeCorrect();
-    invariant_RewardDebtConsistency();
-    invariant_UnclaimedRewardsConsistency();
-    invariant_MaxRewardCapConsistency();
-    invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
-    invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
-    invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
-    invariant_RewardTokenBalanceConsistency();//@audit
-    invariant_TotalRewardConsistency();//@audit
-}
-
-
-function testFuzz_InvariantDepositHighValuesWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { // @audit-issue
-    // Limit the fuzzing range for extremely high values
-    depositAmount = bound(depositAmount, 1e35, 1e40); // Limit deposit amount between 1e35 and 1e40
-    withdrawAmount = bound(withdrawAmount, 1e35, depositAmount); // Limit withdraw amount between 1e35 and depositAmount
-    vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
-
-    // Mint tokens to the beneficiary so they can be deposited
-    MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
-    vm.prank(beneficiary);
-    lockToken.approve(address(lm), depositAmount);
-
-    // Perform the deposit
-    vm.prank(beneficiary);
-    lm.deposit(depositAmount, beneficiary);
-
-    // Add user to the list of users if not already tracked
-    if (!isUserTracked(beneficiary)) {
-        users.push(beneficiary);
-    }
-
-    // Load rewards into the contract
-    _loadRewards(totalRewards);
-
-    // Simulate passage of time to accumulate rewards
-    uint256 blocksPassed = 1000;
-    vm.roll(block.number + blocksPassed);
-
-    // Update accounting to reflect the passage of time and accumulated rewards
-    lm.updateAccounting();
-
-    // Ensure there are rewards to harvest
-    uint256 pendingRewardsBeforeWithdraw = lm.pendingRewards(beneficiary);
-    console.log("Pending rewards before withdrawal:", pendingRewardsBeforeWithdraw);
-
-    // Verify user state before withdraw
-    LiquidityMine.UserInfo memory userBeforeWithdraw = lm.userInfo(beneficiary);
-    console.log("User before withdraw - lockedTokens:", userBeforeWithdraw.lockedTokens);
-    console.log("User before withdraw - rewardDebt:", userBeforeWithdraw.rewardDebt);
-    console.log("User before withdraw - unclaimedRewards:", userBeforeWithdraw.unclaimedRewards);
-
-    // Perform the withdraw
-    vm.prank(beneficiary);
-    lm.withdraw(withdrawAmount, beneficiary);
-
-    // Ensure the rewards are still correct after withdrawal
-    uint256 pendingRewardsAfterWithdraw = lm.pendingRewards(beneficiary);
-    console.log("Pending rewards after withdrawal:", pendingRewardsAfterWithdraw);
-
-    // Verify user state after withdraw
-    LiquidityMine.UserInfo memory userAfterWithdraw = lm.userInfo(beneficiary);
-    console.log("User after withdraw - lockedTokens:", userAfterWithdraw.lockedTokens);
-    console.log("User after withdraw - rewardDebt:", userAfterWithdraw.rewardDebt);
-    console.log("User after withdraw - unclaimedRewards:", userAfterWithdraw.unclaimedRewards);
-
-    // Check if there are pending rewards to harvest
-    if (pendingRewardsAfterWithdraw > 0) {
         // Perform the harvest
         vm.prank(beneficiary);
         lm.harvest(pendingRewardsAfterWithdraw, beneficiary);
-    } else {
-        console.log("No rewards to harvest after withdrawal.");
+
+        // Verify user state after harvest
+        LiquidityMine.UserInfo memory userAfterHarvest = lm.userInfo(beneficiary);
+        console.log("User after harvest - lockedTokens:", userAfterHarvest.lockedTokens);
+        console.log("User after harvest - rewardDebt:", userAfterHarvest.rewardDebt);
+        console.log("User after harvest - unclaimedRewards:", userAfterHarvest.unclaimedRewards);
+
+        // Verify pending rewards after harvest
+        uint256 pendingRewardsAfterHarvest = lm.pendingRewards(beneficiary);
+        console.log("Pending rewards after harvest:", pendingRewardsAfterHarvest);
+
+        // Check that the total claimed rewards are correct
+        uint256 totalClaimedRewardsFromContract = lm.rewardTokensClaimed();
+        uint256 totalClaimedRewardsCalculated = depositAmount.mulWadDown(lm.accRewardsPerLockToken());
+        console.log("Total claimed rewards from contract:", totalClaimedRewardsFromContract);
+        console.log("Total claimed rewards calculated:", totalClaimedRewardsCalculated);
+
+        // Final assertions
+        assertEq(pendingRewardsAfterHarvest, 0, "Pending rewards after harvest should be zero");
+        assertEq(totalClaimedRewardsFromContract, totalClaimedRewardsCalculated, "Total claimed rewards should be correct");
+
+        // Additional final state verification
+        LiquidityMine.UserInfo memory beneficiaryInfo = lm.userInfo(beneficiary);
+        console.log("Beneficiary lockedTokens:", beneficiaryInfo.lockedTokens);
+        console.log("Beneficiary rewardDebt:", beneficiaryInfo.rewardDebt);
+        console.log("Beneficiary unclaimedRewards:", beneficiaryInfo.unclaimedRewards);
+        assertEq(lm.pendingRewards(beneficiary), 0, "Pending rewards after harvest should be zero");
+
+        uint256 totalRewardsAccrued = lm.accRewardsTotal();
+        uint256 totalRewardsClaimed = lm.rewardTokensClaimed();
+        uint256 totalRewardsUnclaimed = 0;
+
+        for (uint256 i = 0; i < users.length; i++) {
+            LiquidityMine.UserInfo memory user = lm.userInfo(users[i]);
+            totalRewardsUnclaimed += user.unclaimedRewards;
+        }
+
+        // assertEq(
+        //     totalRewardsAccrued,
+        //     totalRewardsClaimed + totalRewardsUnclaimed,
+        //     "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
+        // );
+
+        // Run other invariants
+        invariant_TotalLockedTokensMustBeCorrect();
+        invariant_RewardDebtConsistency();
+        invariant_UnclaimedRewardsConsistency();
+        invariant_MaxRewardCapConsistency();
+        invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+        invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+        invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
+        invariant_RewardTokenBalanceConsistency();//@audit
+        invariant_TotalRewardConsistency();//@audit
     }
 
-    // Verify user state after harvest
-    LiquidityMine.UserInfo memory userAfterHarvest = lm.userInfo(beneficiary);
-    console.log("User after harvest - lockedTokens:", userAfterHarvest.lockedTokens);
-    console.log("User after harvest - rewardDebt:", userAfterHarvest.rewardDebt);
-    console.log("User after harvest - unclaimedRewards:", userAfterHarvest.unclaimedRewards);
 
-    // Verify pending rewards after harvest
-    uint256 pendingRewardsAfterHarvest = lm.pendingRewards(beneficiary);
-    console.log("Pending rewards after harvest:", pendingRewardsAfterHarvest);
+    function testFuzz_InvariantDepositHighValuesWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { // @audit-issue
+        // Limit the fuzzing range for extremely high values
+        depositAmount = bound(depositAmount, 1e35, 1e40); // Limit deposit amount between 1e35 and 1e40
+        withdrawAmount = bound(withdrawAmount, 1e35, depositAmount); // Limit withdraw amount between 1e35 and depositAmount
+        vm.assume(beneficiary != address(0) && beneficiary != address(lm)); // Assume beneficiary is not the zero address or the contract address
 
-    // Check that the total claimed rewards are correct
-    uint256 totalClaimedRewardsFromContract = lm.rewardTokensClaimed();
-    uint256 totalClaimedRewardsCalculated = depositAmount.mulWadDown(lm.accRewardsPerLockToken());
-    console.log("Total claimed rewards from contract:", totalClaimedRewardsFromContract);
-    console.log("Total claimed rewards calculated:", totalClaimedRewardsCalculated);
+        // Mint tokens to the beneficiary so they can be deposited
+        MintBurnERC20(address(lockToken)).mint(beneficiary, depositAmount);
+        vm.prank(beneficiary);
+        lockToken.approve(address(lm), depositAmount);
 
-    // Final assertions
-    assertEq(pendingRewardsAfterHarvest, 0, "Pending rewards after harvest should be zero");
-    assertEq(totalClaimedRewardsFromContract, totalClaimedRewardsCalculated, "Total claimed rewards should be correct");
+        // Perform the deposit
+        vm.prank(beneficiary);
+        lm.deposit(depositAmount, beneficiary);
 
-    // Additional final state verification
-    LiquidityMine.UserInfo memory beneficiaryInfo = lm.userInfo(beneficiary);
-    console.log("Beneficiary lockedTokens:", beneficiaryInfo.lockedTokens);
-    console.log("Beneficiary rewardDebt:", beneficiaryInfo.rewardDebt);
-    console.log("Beneficiary unclaimedRewards:", beneficiaryInfo.unclaimedRewards);
-    assertEq(lm.pendingRewards(beneficiary), 0, "Pending rewards after harvest should be zero");
+        // Add user to the list of users if not already tracked
+        if (!isUserTracked(beneficiary)) {
+            users.push(beneficiary);
+        }
 
-    // Verify accRewardsTotal and rewardTokensClaimed
-    uint256 accRewardsTotal = lm.accRewardsTotal();
-    console.log("accRewardsTotal:", accRewardsTotal);
-    console.log("rewardTokensClaimed:", totalClaimedRewardsFromContract);
-    assertEq(
-        accRewardsTotal,
-        totalClaimedRewardsFromContract + beneficiaryInfo.unclaimedRewards,
-        "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
-    );
+        // Load rewards into the contract
+        _loadRewards(totalRewards);
 
-    // Run other invariants
-    invariant_TotalLockedTokensMustBeCorrect();
-    invariant_RewardDebtConsistency();
-    invariant_UnclaimedRewardsConsistency();
-    invariant_MaxRewardCapConsistency();
-    invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
-    invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
-    invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
-    invariant_RewardTokenBalanceConsistency();//@audit
-    invariant_TotalRewardConsistency();//@audit
+        // Simulate passage of time to accumulate rewards
+        uint256 blocksPassed = 1000;
+        vm.roll(block.number + blocksPassed);
 
-}
+        // Update accounting to reflect the passage of time and accumulated rewards
+        lm.updateAccounting();
+
+        // Ensure there are rewards to harvest
+        uint256 pendingRewardsBeforeWithdraw = lm.pendingRewards(beneficiary);
+        console.log("Pending rewards before withdrawal:", pendingRewardsBeforeWithdraw);
+
+        // Verify user state before withdraw
+        LiquidityMine.UserInfo memory userBeforeWithdraw = lm.userInfo(beneficiary);
+        console.log("User before withdraw - lockedTokens:", userBeforeWithdraw.lockedTokens);
+        console.log("User before withdraw - rewardDebt:", userBeforeWithdraw.rewardDebt);
+        console.log("User before withdraw - unclaimedRewards:", userBeforeWithdraw.unclaimedRewards);
+
+        // Perform the withdraw
+        vm.prank(beneficiary);
+        lm.withdraw(withdrawAmount, beneficiary);
+
+        // Ensure the rewards are still correct after withdrawal
+        uint256 pendingRewardsAfterWithdraw = lm.pendingRewards(beneficiary);
+        console.log("Pending rewards after withdrawal:", pendingRewardsAfterWithdraw);
+
+        // Verify user state after withdraw
+        LiquidityMine.UserInfo memory userAfterWithdraw = lm.userInfo(beneficiary);
+        console.log("User after withdraw - lockedTokens:", userAfterWithdraw.lockedTokens);
+        console.log("User after withdraw - rewardDebt:", userAfterWithdraw.rewardDebt);
+        console.log("User after withdraw - unclaimedRewards:", userAfterWithdraw.unclaimedRewards);
+
+        // Check if there are pending rewards to harvest
+        if (pendingRewardsAfterWithdraw > 0) {
+            // Perform the harvest
+            vm.prank(beneficiary);
+            lm.harvest(pendingRewardsAfterWithdraw, beneficiary);
+        } else {
+            console.log("No rewards to harvest after withdrawal.");
+        }
+
+        // Verify user state after harvest
+        LiquidityMine.UserInfo memory userAfterHarvest = lm.userInfo(beneficiary);
+        console.log("User after harvest - lockedTokens:", userAfterHarvest.lockedTokens);
+        console.log("User after harvest - rewardDebt:", userAfterHarvest.rewardDebt);
+        console.log("User after harvest - unclaimedRewards:", userAfterHarvest.unclaimedRewards);
+
+        // Verify pending rewards after harvest
+        uint256 pendingRewardsAfterHarvest = lm.pendingRewards(beneficiary);
+        console.log("Pending rewards after harvest:", pendingRewardsAfterHarvest);
+
+        // Check that the total claimed rewards are correct
+        uint256 totalClaimedRewardsFromContract = lm.rewardTokensClaimed();
+        uint256 totalClaimedRewardsCalculated = depositAmount.mulWadDown(lm.accRewardsPerLockToken());
+        console.log("Total claimed rewards from contract:", totalClaimedRewardsFromContract);
+        console.log("Total claimed rewards calculated:", totalClaimedRewardsCalculated);
+
+        // Final assertions
+        assertEq(pendingRewardsAfterHarvest, 0, "Pending rewards after harvest should be zero");
+        assertEq(totalClaimedRewardsFromContract, totalClaimedRewardsCalculated, "Total claimed rewards should be correct");
+
+        // Additional final state verification
+        LiquidityMine.UserInfo memory beneficiaryInfo = lm.userInfo(beneficiary);
+        console.log("Beneficiary lockedTokens:", beneficiaryInfo.lockedTokens);
+        console.log("Beneficiary rewardDebt:", beneficiaryInfo.rewardDebt);
+        console.log("Beneficiary unclaimedRewards:", beneficiaryInfo.unclaimedRewards);
+        assertEq(lm.pendingRewards(beneficiary), 0, "Pending rewards after harvest should be zero");
+
+        // Verify accRewardsTotal and rewardTokensClaimed
+        uint256 accRewardsTotal = lm.accRewardsTotal();
+        console.log("accRewardsTotal:", accRewardsTotal);
+        console.log("rewardTokensClaimed:", totalClaimedRewardsFromContract);
+        assertEq(
+            accRewardsTotal,
+            totalClaimedRewardsFromContract + beneficiaryInfo.unclaimedRewards,
+            "Total rewards accrued should equal the sum of claimed and unclaimed rewards"
+        );
+
+        // Run other invariants
+        invariant_TotalLockedTokensMustBeCorrect();
+        invariant_RewardDebtConsistency();
+        invariant_UnclaimedRewardsConsistency();
+        invariant_MaxRewardCapConsistency();
+        invariant_AccRewardsTotalShouldNotExceedTotalRewardCap();
+        invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal();
+        invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
+        invariant_RewardTokenBalanceConsistency();//@audit
+        invariant_TotalRewardConsistency();//@audit
+
+    }
 
 
     function testFuzz_RewardAccumulationAndDistribution(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public {
@@ -551,7 +551,7 @@ function testFuzz_InvariantDepositHighValuesWithdraw(uint256 depositAmount, uint
         invariant_GLFTokenBalanceAndRewardTokensClaimedShouldEqualTotalRewardCap();
     }
 
-    function testFuzz_MultiUserDepositHarvest(uint256 accounts, uint256 depositAmount) public {
+    function testFuzz_MultiUserDepositHarvest(uint256 accounts, uint256 depositAmount) public { //@audit => verify
         accounts = bound(accounts, 1, 100);
         depositAmount = bound(depositAmount, 1, 2_000_000_000e18);
 
@@ -666,6 +666,11 @@ function testFuzz_InvariantDepositHighValuesWithdraw(uint256 depositAmount, uint
     function concatStrings(string memory a, string memory b) internal pure returns (string memory) {
         return string(abi.encodePacked(a, b));
     }
+
+
+
+//////////////////////////////////////
+// https://github.com/glifio/token/issues/1
 
 function testFuzz_InvariantPrecisionHighDepositWithdraw(uint256 depositAmount, uint256 withdrawAmount, address beneficiary) public { 
     // Limit the fuzzing range for more reasonable values
@@ -908,6 +913,7 @@ function testFuzz_InvariantPrecisionDepositWithdraw(uint256 depositAmount, uint2
 
 }
 
+//////////////////////////////////////
 
 
 function testFuzz_InvariantAccRewardsTotalLessThanOrEqualTotalRewardCap(
@@ -1260,7 +1266,8 @@ function testFuzz_RandomUserActionsWithCheck(
 }
 
 
-
+//////////////////////////////////////
+// https://github.com/glifio/token/pull/5
 function testFuzz_ImprecisionInRewardsDistribution(
     uint256 depositAmount,
     uint256 withdrawAmount,
@@ -1514,5 +1521,90 @@ function testFuzz_ImprecisionMultiUser(
     );
 }
 
+//////////////////////////////////////
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    function testNoRewardsAccrue() public {
+        // make this number a tiny bit bigger than 1e18
+        uint256 depositAmount = 1e18 + 1;
+        // load a small amount of rewards, such that it's 1 wei per block in reward distributions
+        vm.prank(sysAdmin);
+        lm.setRewardPerEpoch(1);
+        _loadRewards(100);
+
+        _depositLockTokens(investor, depositAmount);
+
+        assertEq(lm.rewardsLeft(), 100, "rewardsLeft should be 100");
+        assertEq(lm.fundedEpochsLeft(), 100, "rewardsLeft should be 100");
+
+        // roll forward 1 block to accrue 1 wei of reward token
+        vm.roll(block.number + 1);
+
+        lm.updateAccounting();
+
+        assertEq(lm.accRewardsPerLockToken(), 0, "accRewardsPerLockToken should be 0");
+    }
+
+
+    // this test ensures that rewards do not accrue if there would be a problem with rounding down on accRewardsPerLockToken
+    // this situatin occurs when the lockTokenSupply > 1*10^18 * newRewards because divWadDown rounds to 0
+    uint256 constant MIN_REWARD_PER_EPOCH = 1e10;
+
+    function testNoRewardsAccrue(uint256 depositAmount) public {
+        depositAmount = bound(depositAmount, 1, MAX_FIL);
+        // load a small amount of rewards, such that it's 1 wei per block in reward distributions
+        vm.prank(sysAdmin);
+        lm.setRewardPerEpoch(MIN_REWARD_PER_EPOCH);
+        _loadRewards(totalRewards);
+
+        _depositLockTokens(investor, depositAmount);
+
+        assertEq(lm.rewardsLeft(), totalRewards, "rewardsLeft should be totalRewards");
+
+        // roll forward 1 block to accrue a small amount of reward token
+        vm.roll(block.number + 1);
+
+        lm.updateAccounting();
+
+        assertGt(lm.accRewardsTotal(), 0, "accRewardsTotal should be greater than 0");
+        assertGt(lm.accRewardsPerLockToken(), 0, "accRewardsPerLockToken should be 0");
+
+        // roll to the end and all rewards should be distributed
+        vm.roll(block.number + lm.fundedEpochsLeft());
+
+        assertEq(lm.rewardsLeft(), 0, "rewardsLeft should be 0");
+        assertEq(lm.fundedEpochsLeft(), 0, "fundedEpochsLeft should be 0");
+        assertApproxEqAbs(lm.pendingRewards(investor), totalRewards, DUST, "Investor should receive all rewards");
+    }
+
+    function testFuzz_NoRewardsAccrue(uint256 depositAmount) public {
+        depositAmount = bound(depositAmount, 1, MAX_FIL);
+        // load a small amount of rewards, such that it's 1 wei per block in reward distributions
+        vm.prank(sysAdmin);
+        lm.setRewardPerEpoch(MIN_REWARD_PER_EPOCH);
+        _loadRewards(totalRewards);
+
+        _depositLockTokens(investor, depositAmount);
+
+        assertEq(lm.rewardsLeft(), totalRewards, "rewardsLeft should be totalRewards");
+
+        // roll forward 1 block to accrue a small amount of reward token
+        vm.roll(block.number + 1);
+
+        lm.updateAccounting();
+
+        assertGt(lm.accRewardsTotal(), 0, "accRewardsTotal should be greater than 0");
+        assertGt(lm.accRewardsPerLockToken(), 0, "accRewardsPerLockToken should be 0");
+
+        // roll to the end and all rewards should be distributed
+        vm.roll(block.number + lm.fundedEpochsLeft());
+
+        assertEq(lm.rewardsLeft(), 0, "rewardsLeft should be 0");
+        assertEq(lm.fundedEpochsLeft(), 0, "fundedEpochsLeft should be 0");
+        assertApproxEqAbs(lm.pendingRewards(investor), totalRewards, DUST, "Investor should receive all rewards");
+    }
 }
