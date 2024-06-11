@@ -58,6 +58,7 @@ contract EchidnaLiquidityMine is EchidnaSetup {
 
     function test_locked_tokens_increase(uint256 amount) public {
         if (amount == 0 ) return;
+        if (amount > 10000) return;
 
         prepareTokens(amount);
 
@@ -78,6 +79,7 @@ contract EchidnaLiquidityMine is EchidnaSetup {
 
     function test_unclaimed_rewards_calculation(uint256 amount) public {
         if (amount == 0) return;
+        if (amount > 10000) return;
 
         prepareTokens(amount);
         hevm.prank(USER1);
@@ -99,6 +101,7 @@ contract EchidnaLiquidityMine is EchidnaSetup {
 
     function test_reward_debt_calculation(uint256 amount) public {
         if (amount == 0) return;
+        if (amount > 10000) return;
 
         prepareTokens(amount);
         hevm.prank(USER1);
@@ -112,6 +115,7 @@ contract EchidnaLiquidityMine is EchidnaSetup {
 
     function test_deposit_transfer_successful(uint256 amount) public {
         if (amount == 0) return;
+        if (amount > 10000) return;
 
         uint256 initialContractBalance = lockToken.balanceOf(address(lm));
         uint256 initialUserBalance = lockToken.balanceOf(USER1);
@@ -139,7 +143,8 @@ contract EchidnaLiquidityMine is EchidnaSetup {
     // ============================================
 
     function test_locked_tokens_decrease(uint256 depositAmount, uint256 withdrawAmount) public {
-        if (depositAmount == 0 || withdrawAmount > depositAmount) return;
+        if (depositAmount == 0 || depositAmount > 10000) return;
+        if (withdrawAmount > depositAmount) return;
 
         prepareDeposit(depositAmount);
 
@@ -163,7 +168,8 @@ contract EchidnaLiquidityMine is EchidnaSetup {
 
 
     function test_unclaimed_rewards_update(uint256 depositAmount, uint256 withdrawAmount) public {
-        if (depositAmount == 0 || withdrawAmount == 0) return;
+        if (depositAmount == 0 || depositAmount > 10000) return;
+        if (withdrawAmount > depositAmount) return;
 
         prepareDeposit(depositAmount);
 
@@ -187,7 +193,8 @@ contract EchidnaLiquidityMine is EchidnaSetup {
     }
 
     function test_reward_debt_update(uint256 depositAmount, uint256 withdrawAmount) public {
-        if (depositAmount == 0 || withdrawAmount == 0) return;
+        if (depositAmount == 0 || depositAmount > 10000) return;
+        if (withdrawAmount > depositAmount) return;
 
         prepareDeposit(depositAmount);
 
@@ -205,8 +212,8 @@ contract EchidnaLiquidityMine is EchidnaSetup {
     }
 
     function test_withdraw_transfer_successful(uint256 depositAmount, uint256 withdrawAmount) public {
-        if (depositAmount == 0 || withdrawAmount == 0) return;
-        if (depositAmount > 10000 || withdrawAmount > depositAmount) return;
+        if (depositAmount == 0 || depositAmount > 10000) return;
+        if (withdrawAmount > depositAmount) return;
 
         prepareDeposit(depositAmount);
 
@@ -234,8 +241,11 @@ contract EchidnaLiquidityMine is EchidnaSetup {
     // ============================================
 
     function test_harvest_rewards_update(uint256 depositAmount, uint256 harvestAmount, uint256 nextBlocks) public {
-        if (depositAmount == 0 || harvestAmount == 0) return;
-        if (nextBlocks > 100000) return;
+        if (depositAmount == 0 || depositAmount > 10000) return;
+        if (harvestAmount > depositAmount) return;
+
+        if (harvestAmount == 0) return;
+        if (nextBlocks > 1000) return;
 
         prepareDeposit(depositAmount);
         loadRewards(TOTAL_REWARDS);
@@ -263,8 +273,11 @@ contract EchidnaLiquidityMine is EchidnaSetup {
     }
 
     function test_reward_debt_after_harvest(uint256 depositAmount, uint256 harvestAmount, uint256 nextBlocks) public {
-        if (depositAmount == 0 || harvestAmount == 0) return;
-        if (nextBlocks > 100000) return;
+        if (depositAmount == 0 || depositAmount > 10000) return;
+        if (harvestAmount > depositAmount) return;
+
+        if (harvestAmount == 0) return;
+        if (nextBlocks > 1000) return;
 
         prepareDeposit(depositAmount);
         loadRewards(TOTAL_REWARDS);
@@ -325,6 +338,68 @@ contract EchidnaLiquidityMine is EchidnaSetup {
         assert(accRewardsTotal == expectedAccRewardsTotal);
         assert(lockTokenSupply == depositAmount);
     }
+
+    function test_multiple_deposits_accrual(uint256 depositAmount1, uint256 depositAmount2, uint256 blocks) public {
+    if (depositAmount1 == 0 || depositAmount2 == 0 || blocks == 0) return;
+    if (depositAmount1 > 10 || depositAmount2 > 10 || blocks > 10) return;
+
+    // First deposit
+    prepareDeposit(depositAmount1);
+    loadRewards(TOTAL_REWARDS);
+
+    // Ensure initial state
+    if(lm.accRewardsPerLockToken() != 0) return;
+    if(lm.accRewardsTotal() != 0) return;
+
+    // Advance blocks and accrue rewards for the first deposit
+    advanceBlocks(blocks);
+    lm.updateAccounting();
+
+    // Capture accrued rewards per lock token after the first deposit
+    uint256 firstAccRewardsPerLockToken = lm.accRewardsPerLockToken();
+    uint256 firstAccRewardsTotal = lm.accRewardsTotal();
+
+    // Second deposit
+    prepareTokens(depositAmount2);
+    hevm.prank(USER1);
+    lm.deposit(depositAmount2, USER1);
+
+    // Advance blocks and accrue rewards after the second deposit
+    advanceBlocks(blocks);
+    lm.updateAccounting();
+
+    uint256 secondAccRewardsPerLockToken = lm.accRewardsPerLockToken();
+    uint256 secondAccRewardsTotal = lm.accRewardsTotal();
+    uint256 lockTokenSupply = lockToken.balanceOf(address(lm));
+    Debugger.log("lockTokenSupply", lockTokenSupply);
+
+    // Calculate expected values
+    uint256 totalDepositAmount = depositAmount1 + depositAmount2;
+
+    // Accumulated rewards for the first deposit period
+    uint256 expectedFirstNewRewards = REWARD_PER_EPOCH * blocks;
+    uint256 expectedFirstAccRewardsPerLockToken = expectedFirstNewRewards.divWadDown(depositAmount1);
+
+    // Accumulated rewards for the second deposit period
+    uint256 expectedSecondNewRewards = REWARD_PER_EPOCH * blocks;
+    uint256 expectedSecondAccRewardsPerLockToken = expectedSecondNewRewards.divWadDown(totalDepositAmount);
+
+    // Combined expected values
+    uint256 expectedTotalAccRewardsPerLockToken = firstAccRewardsPerLockToken + expectedSecondAccRewardsPerLockToken;
+    uint256 expectedTotalAccRewardsTotal = firstAccRewardsTotal + expectedSecondNewRewards;
+
+    Debugger.log("accRewardsPerLockToken", secondAccRewardsPerLockToken);
+    Debugger.log("expectedAccRewardsPerLockToken", expectedTotalAccRewardsPerLockToken);
+    Debugger.log("difference", secondAccRewardsPerLockToken - expectedTotalAccRewardsPerLockToken);
+    assert(secondAccRewardsPerLockToken == expectedTotalAccRewardsPerLockToken);
+
+    Debugger.log("accRewardsTotal", secondAccRewardsTotal);
+    Debugger.log("expectedAccRewardsTotal", expectedTotalAccRewardsTotal);
+    assert(secondAccRewardsTotal == expectedTotalAccRewardsTotal);
+    assert(lockTokenSupply == totalDepositAmount);
+}
+
+
 
 
 

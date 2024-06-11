@@ -11,9 +11,7 @@ contract EchidnaSetup is EchidnaConfig {
     address internal _erc20lockToken;
 
     constructor() {
-        hevm.prank(USER1);
         rewardToken = new MockERC20("GLIF", "GLF");
-        hevm.prank(USER1);
         lockToken = new MockERC20("GLIF", "GLF");
         _erc20rewardToken = address(rewardToken);
         _erc20lockToken = address(lockToken);
