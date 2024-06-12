@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 import {Test, console} from "forge-std/Test.sol";
-import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {LiquidityMine} from "src/LiquidityMine.sol";
 import {Token} from "src/Token.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -15,7 +14,7 @@ interface MintBurnERC20 is IERC20 {
     function burn(address from, uint256 value) external;
 }
 
-contract SetUp is StdInvariant, Test {
+contract SetUp is Test {
     using FixedPointMathLib for uint256;
 
     LiquidityMine public lm;
@@ -46,6 +45,8 @@ contract SetUp is StdInvariant, Test {
         lm = new LiquidityMine(rewardToken, lockToken, rewardPerEpoch, sysAdmin);
 
         MintBurnERC20(address(rewardToken)).mint(sysAdmin, totalRewards);
+        MintBurnERC20(address(lockToken)).mint(investor, 1e24);
+
     }
    
 }

@@ -37,10 +37,10 @@ max_test_rejects = 1_000_000
 # Number of runs for each invariant test
 runs = 256
 
-# # Depth of each invariant run
-# depth = 10
+# Depth of each invariant run
+depth = 10
 
-# # Whether to fail if a revert occurs during the invariant testing
+# Whether to fail if a revert occurs during the invariant testing
 # fail_on_revert = true
 
-# call_override = false   # reentrancy-check
+call_override = false   # reentrancy-check

@@ -1,0 +1,12 @@
+Contract: lib/solmate/src/test/utils/mocks/MockERC20.sol:MockERC20(0x3005b5af4048ae952f93accd22bf045f5bcddae0)
+Instruction Coverage: 279/1713 (16.29%) 
+Branch Coverage: 8/72 (11.11%) 
+--------------------------------
+Contract: lib/solmate/src/test/utils/mocks/MockERC20.sol:MockERC20(0x8b9cb57015af940b008a0c4d6ea0f79ce53e1dc6)
+Instruction Coverage: 326/1713 (19.03%) 
+Branch Coverage: 10/72 (13.89%) 
+--------------------------------
+Contract: src/LiquidityMine.sol:LiquidityMine(0xf0c5004178118dcda6716033dcb820118b3202d8)
+Instruction Coverage: 1039/2179 (47.68%) 
+Branch Coverage: 49/106 (46.23%) 
+--------------------------------

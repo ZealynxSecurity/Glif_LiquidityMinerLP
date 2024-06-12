@@ -181,13 +181,6 @@ contract Assertion is Utils  {
         );
     }
 
-    // function assertRewardCapInvariant(string memory label) internal view {
-    //     assertEq(
-    //         lm.totalRewardCap(),
-    //         lm.rewardTokensClaimed() + rewardToken.balanceOf(address(lm)),
-    //         string(abi.encodePacked("Invariant assertRewardCapInvariant: ", label))
-    //     );
-    // }
 
 
 
