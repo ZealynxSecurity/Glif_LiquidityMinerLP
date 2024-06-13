@@ -343,7 +343,93 @@ It is recommended to either use named returned parameters without the `return` k
 
 # Security Test List
 
-Aqui añade la tabla 
+| #  | Test Name                                                           | Foundry | Echidna | Medusa | Halmos | Kontrol | Ityfuzz |
+|----|---------------------------------------------------------------------|---------|---------|--------|--------|---------|---------|
+| 1  | test_Initialization                                                 | ✅      |         |        |        |         |         |
+| 2  | testFuzz_Deposit                                                    | ✅      |         |        |        | ✅      |         |
+| 3  | testFuzz_Withdraw                                                   | ✅      |         |        |        |         |         |
+| 4  | testFuzz_FinalStateVerification                                     | ✅      |         |        |        | ✅      |         |
+| 5  | test_intermediate_rewards                                           | ✅      |         |        |        | ✅      |         |
+| 6  | testFuzz_InitialRewardLoadingAndDeposit                             | ✅      |         |        |        | ✅      |         |
+| 7  | testFuzz_MidwayRewardsAndHarvest                                    | ✅      |         |        |        |         |         |
+| 8  | testFuzz_LMExtensionAndFinalRewards                                 | ✅      |         |        |        |         |         |
+| 9  | testFuzz_InvariantDepositWithdraw                                   | ✅      |         |        |        |         |         |
+| 10 | testFuzz_InvariantDepositHighValuesWithdraw                         | ✅      |         |        |        |         |         |
+| 11 | testFuzz_RewardAccumulationAndDistribution                          | ✅      |         |        |        |         |         |
+| 12 | testFuzz_LoadRewards                                                | ✅      |         |        |        |         |         |
+| 13 | testFuzz_Harvest                                                    | ✅      |         |        |        |         |         |
+| 14 | testFuzz_MultiUserDepositHarvest                                    | ✅      |         |        |        |         |         |
+| 15 | testFuzz_InvariantPrecisionHighDepositWithdraw                      | ✅      |         |        |        |         |         |
+| 16 | testFuzz_InvariantPrecisionDepositWithdraw                          | ✅      |         |        |        |         |         |
+| 17 | testFuzz_InvariantAccRewardsTotalLessThanOrEqualTotalRewardCap      | ✅      |         |        |        |         |         |
+| 18 | testFuzz_InvariantMultipleOperations                                | ✅      |         |        |        |         |         |
+| 19 | testFuzz_MultipleUsersOperations                                    | ✅      |         |        |        |         |         |
+| 20 | testFuzz_RandomUserActionsWithCheck                                 | ✅      |         |        |        |         |         |
+| 21 | testFuzz_ImprecisionInRewardsDistribution                           | ✅      |         |        |        |         |         |
+| 22 | testFuzz_ImprecisionInRewardsDistribution_NormalValues              | ✅      |         |        |        |         |         |
+| 23 | testFuzz_ImprecisionMultiUser                                       | ✅      |         |        |        |         |         |
+| 24 | testNoRewardsAccrue                                                 | ✅      |         |        |        |         |         |
+| 25 | testNoRewardsAccrue                                                 | ✅      |         |        |        |         |         |
+| 26 | testFuzz_NoRewardsAccrue                                            | ✅      |         |        |        |         |         |
+| 27 | testFuzz_MultipleDepositsTwoUsers                                   | ✅      |         |        |        |         |         |
+| 28 | testFuzz_MultipleDepositsSingleUser                                 | ✅      |         |        |        |         |         |
+| 29 | test_locked_tokens_increase                                         |         | ✅      | ✅     |        |         |         |
+| 30 | test_unclaimed_rewards_calculation                                  |         | ✅      | ✅     |        |         |         |
+| 31 | test_reward_debt_calculation                                        |         | ✅      | ✅     |        |         |         |
+| 32 | test_deposit_transfer_successful                                    |         | ✅      | ✅     |        |         |         |
+| 33 | test_locked_tokens_decrease                                         |         | ✅      | ✅     |        |         |         |
+| 34 | test_unclaimed_rewards_update                                       |         | ✅      | ✅     |        |         |         |
+| 35 | test_reward_debt_update                                             |         | ✅      | ✅     |        |         |         |
+| 36 | test_withdraw_transfer_successful                                   |         | ✅      | ✅     |        |         |         |
+| 37 | test_harvest_rewards_update                                         |         | ✅      | ✅     |        |         |         |
+| 38 | test_reward_debt_after_harvest                                      |         | ✅      | ✅     |        |         |         |
+| 39 | test_withdraw_and_harvest_basic                                     |         | ✅      | ✅     |        |         |         |
+| 40 | test_multiple_deposits_accrual                                      |         | ✅      | ✅     |        |         |         |
+| 41 | test_reward_cap_exceeded                                            |         | ✅      | ✅     |        |         |         |
+| 42 | test_set_reward_per_epoch                                           |         | ✅      | ✅     |        | ✅      |         |
+| 43 | check_Deposit_CheckBalances                                         |         |         |        | ✅     |         |         |
+| 44 | check_deposit_positive_amount                                       |         |         |        | ✅     |         |         |
+| 45 | check_deposit_updates_reward_debt                                   |         |         |        | ✅     |         |         |
+| 46 | check_deposit_more_than_balance                                     |         |         |        | ✅     |         |         |
+| 47 | check_updateAccounting_with_locked_tokens                           |         |         |        | ✅     |         |         |
+| 48 | check_updateAccounting_respects_totalRewardCap                      |         |         |        | ✅     |         |         |
+| 49 | check_updateAccounting_invariant                                    |         |         |        | ✅     |         |         |
+| 50 | check_withdraw_decreases_locked_tokens                              |         |         |        | ✅     |         |         |
+| 51 | check_harvest_decreases_unclaimed_rewards                           |         |         |        | ✅     |         |         |
+| 52 | check_updateAccounting_no_change_without_new_blocks                 |         |         |        | ✅     |         |         |
+| 53 | check_loadRewards_increases_totalRewardCap                          |         |         |        | ✅     |         |         |
+| 54 | check_withdrawAndHarvest                                            |         |         |        | ✅     |         |         |
+| 55 | check_setRewardPerEpoch                                             |         |         |        | ✅     |         |         |
+| 56 | check_pendingRewards                                                |         |         |        | ✅     |         |         |
+| 57 | check_userInfo                                                      |         |         |        | ✅     |         |         |
+| 58 | check_pendingRewards_computes_correct_accRewardsPerLockToken        |         |         |        | ✅     |         |         |
+| 59 | check_fundedEpochsLeft_computes_correct_accRewardsTotal             |         |         |        | ✅     |         |         |
+| 60 | check_fundedEpochsLeft_ifcomputes_correct_accRewardsTotal           |         |         |        | ✅     |         |         |
+| 61 | check_rewardsLeft_respects_totalRewardCap                           |         |         |        | ✅     |         |         |
+| 62 | check_updateAccounting_computes_correct_lockTokenSupply             |         |         |        | ✅     |         |         |
+| 63 | check_initial_deposit_and_intermediate_rewards                      |         |         |        | ✅     |         |         |
+| 64 | check_intermediate_rewards                                           |         |         |        | ✅     |         |         |
+| 65 | check_update_accounting_after_initial_deposit                       |         |         |        | ✅     |         |         |
+| 66 | check_second_deposit                                                |         |         |        | ✅     |         |         |
+| 67 | check_final_rewards                                                 |         |         |        | ✅     |         |         |
+| 68 | test_check_deposit_positive_amount                                  |         |         |        |        | ✅      |         |
+| 69 | testcheck_setRewardPerEpoch                                         |         |         |        |        | ✅      |         |
+| 70 | test_pendingRewards_computes_correct_accRewardsPerLockToken         |         |         |        |        | ✅      |         |
+| 71 | test_fundedEpochsLeft_computes_correct_accRewardsTotal              |         |         |        |        | ✅      |         |
+| 72 | test_rewardsLeft_respects_totalRewardCap                            |         |         |        |        | ✅      |         |
+| 73 | test_updateAccounting_computes_correct_lockTokenSupply              |         |         |        |        | ✅      |         |
+| 74 | testFuzz_InitialDeposit                                             | ✅      |         |        |        | ✅      |         |
+| 75 | testFuzz_MidwayPointCheck                                           | ✅      |         |        |        | ✅      |         |
+| 76 | testFuzz_FinalRewardsDistribution                                   | ✅      |         |        |        | ✅      |         |
+| 77 | invariant_RewardDebtConsistency                                     |         |         |        |        |         | ✅      |
+| 78 | invariant_UnclaimedRewardsConsistency                               |         |         |        |        |         | ✅      |
+| 79 | invariant_TotalRewardTokensClaimed                                  |         |         |        |        |         | ✅      |
+| 80 | invariant_TotalRewardConsistency                                    |         |         |        |        |         | ✅      |
+| 81 | invariant_MaxRewardCapConsistency                                   |         |         |        |        |         | ✅      |
+| 82 | invariant_AccRewardsTotalShouldNotExceedTotalRewardCap              |         |         |        |        |         | ✅      |
+| 83 | invariant_RewardTokensClaimedShouldNotExceedAccRewardsTotal         |         |         |        |        |         | ✅      |
+| 84 | invariant_assertRewardCapInvariant                                  |         |         |        |        |         | ✅      |
+| 85 | invariant_assert_NoResidualDust                                     |         |         |        |        |         | ✅      |
 
 
 # Complete Documentation of Test Suite Implemented

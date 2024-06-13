@@ -173,7 +173,7 @@ contract FuzzLiquidityMine is Assertion {
         assertRewardCapInvariant("testFuzz_FinalStateVerification");
     }
 
-    function test_check_intermediate_rewards(uint256 depositAmount) public {
+    function test_intermediate_rewards(uint256 depositAmount) public {
         vm.assume(depositAmount > 0 && depositAmount < 1e24);
 
         address beneficiary = makeAddr("beneficiary");
