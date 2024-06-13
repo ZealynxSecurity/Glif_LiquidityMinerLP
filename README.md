@@ -118,3 +118,79 @@ No we trust the auditors will get the job done
 - Are you planning to make the report public?
 Depends on what we find 
 
+
+## Installation
+
+To be able to use this repository, you need to have the following installed:
+
+- [Foundry]( https://book.getfoundry.sh/getting-started/installation)
+- [Echidna]( https://github.com/crytic/echidna?tab=readme-ov-file#installation)
+- [Medusa](https://github.com/crytic/medusa)
+- [Halmos](https://github.com/a16z/halmos/tree/main)
+- [Kontrol](https://github.com/runtimeverification/kontrol/tree/master)
+- [Ityfuzz](https://github.com/fuzzland/ityfuzz)
+
+
+## Init:
+
+```js
+ git submodule update --init --recursive
+```
+```js
+forge install
+forge build
+```
+
+## Foundry
+
+```solidity
+forge test --mc FuzzLiquidityMine
+forge test --mc FuzzLiquidityMine --mt <test>
+```
+## Echidna
+```solidity
+ echidna . --contract EchidnaLiquidityMine --config config.yaml
+```
+
+## Medusa
+```solidity
+medusa fuzz
+```
+
+## Halmos
+```solidity
+halmos --contract HalmosFVLiquidityMine --solver-timeout-assertion 0 
+halmos --contract HalmosFVLiquidityMine --function <test> --solver-timeout-assertion 0
+```
+
+## Ityfuzz
+```solidity
+ityfuzz evm -m ItyfuzzInvariant -- forge build
+ityfuzz evm -m test/Fuzz/ItyfuzzInvariant.t.sol:ItyfuzzInvariant -- forge test --mc ItyfuzzInvariant --mt <test>
+```
+
+## Kontrol
+
+```bash
+forge build --force
+```
+
+```bash
+kontrol build
+```
+
+```bash
+kontrol prove --match-test KontrolFVLiquidityKontrol.<test> --max-depth 10000 --no-break-on-calls --max-frontier-parallel 2 --verbose
+```
+
+```bash
+kontrol view-kcfg 'KontrolFVLiquidityKontrol.testFuzz_Deposit(uint256,address)' --version <specify version>
+```
+or
+```bash
+kontrol view-kcfg KontrolFVLiquidityKontrol.testFuzz_Deposit
+```
+or
+```bash
+kontrol show KontrolFVLiquidityKontrol.testFuzz_Deposit
+```

@@ -631,7 +631,6 @@ Step 2: Add the cheat code bug() at the points in your code where you want to ve
 ```solidity
 ityfuzz evm -m ItyfuzzInvariant -- forge build
 ityfuzz evm -m test/Fuzz/ItyfuzzInvariant.t.sol:ItyfuzzInvariant -- forge test --mc ItyfuzzInvariant --mt <test>
-
 ```
 
 
