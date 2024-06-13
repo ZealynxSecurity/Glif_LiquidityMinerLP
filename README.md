@@ -4,12 +4,15 @@
 | [Installation](#installation) | Setup and installation requirements. |
 | [Init](#init) | Initial setup and build commands. |
 | [Where to Find the Tests](#where-to-find-the-tests) | Locations of different test suites. |
-| [Testing Environments](#testing-environments) | Overview of testing environments: Foundry, Echidna, Halmos, and Ityfuzz. |
+| [Testing Environments](#testing-environments) | Overview of testing environments: Foundry, Echidna, Halmos, Ityfuzz, Medusa, and Kontrol. |
 | [Foundry Tests](#foundry) | How to run Foundry tests and where to find them. |
 | [Echidna Tests](#echidna) | Setup and execution of Echidna tests. |
 | [Halmos Tests](#halmos) | Information on setting up and running Halmos tests. |
 | [Ityfuzz Tests](#ityfuzz) | Details on Ityfuzz testing environment and usage. |
-| [Test Coverage](#test-coverage) | Test coverage information for various contracts and functionalities. |
+| [Medusa Tests](#Medusa) | Instructions for setting up and running Medusa tests. |
+| [Kontrol Tests](#Kontrol) | Guide to using Kontrol for test execution and debugging. |
+
+
 
 ## Installation
 
@@ -137,28 +140,18 @@ medusa fuzz
 
 ### Where are tests
 
-- Halmos in the `test/FormalVerification` folder
+- Halmos in the test/FormalVerification folder
 
 ### How to run them
 
 #### LiquidityMine.sol
 
-- test/V2MultiAsset/Halmos/ZealynxHalmos_PortalV2.t.sol
+- test/FormalVerification/HalmosFV.t.sol
   
 ```solidity
-halmos --contract ZealynxHalmos_PortalV2 --solver-timeout-assertion 0
+halmos --contract HalmosFVLiquidityMine --solver-timeout-assertion 0 
+halmos --contract HalmosFVLiquidityMine --function <test> --solver-timeout-assertion 0
 ```
-
-
-#### VirtualLP
-
-- test/V2MultiAsset/Halmos/ZealynxHalmosVirtual.t.sol
-
-```solidity
-halmos --contract ZealynxHalmosVirtual --solver-timeout-assertion 0
-```
-
-
 
 
 ## Ityfuzz
@@ -173,36 +166,103 @@ halmos --contract ZealynxHalmosVirtual --solver-timeout-assertion 0
 
 ### Where are tests
 
-- Ityfuzz in the `test/V2MultiAsset/Ityfuzz` folder
+- Ityfuzz in the `test/Fuzz` folder
 
 ### How to run them
 
-- To run Ityfuzz, you need to delete the files in the "onchain" folder and comment out the files from Halmos.
+We can run ityfuzz in two main ways:
 
-#### PortalV2MultiAsset
+1. Running ityfuzz on Invariant Tests
+Use ityfuzz to run on top of the invariant tests you have already written. This method leverages the existing invariant checks in your tests.
 
-- test/V2MultiAsset/Ityfuzz/ItyfuzzPortalV2MultiAsset.sol
+2. [Using Inline Assertions with ityfuzz](https://github.com/fuzzland/ityfuzz/blob/master/solidity_utils/lib.sol)
+
+To use [inline assertions with ityfuzz](https://github.com/fuzzland/ityfuzz/blob/960e9e148d376615df776529ddaedba93af0dced/tests/evm/complex-condition/test.sol), follow these steps:
+
+Step 1: Incorporate the solidity_utils library into your contract (LiquidityMine.sol):
+
+```solidity
+import "lib/solidity_utils/lib.sol";
+```
+
+Step 2: Add the cheat code bug() at the points in your code where you want to verify an invariant.
+
+
+#### LiquidityMine.sol
+
+- test/Fuzz/ItyfuzzInvariant.t.sol
   
 ```solidity
-ityfuzz evm -m ItyfuzzPortalV2MultiAsset -- forge build
+ityfuzz evm -m ItyfuzzInvariant -- forge build
+ityfuzz evm -m test/Fuzz/ItyfuzzInvariant.t.sol:ItyfuzzInvariant -- forge test --mc ItyfuzzInvariant --mt <test>
 
 ```
 
-
-#### VirtualLP
-
-- test/V2MultiAsset/Ityfuzz/ItyfuzzVirtuLp.sol
-
-```solidity
-ityfuzz evm -m ItyfuzzVirtuaLp -- forge build
-
-```
 
 <img width="700" alt="image" src="image/Ity.png">
 
 
-# Test Coverage
+## Kontrol
 
-`To view Foundry coverage, delete the "onchain" folder and comment out the Halmos folder`
+### Resources to set up environment and understand approach
 
-## Echidna
+- [CheatCode](https://github.com/runtimeverification/kontrol-cheatcodes/tree/master)
+- [Documentation](https://docs.runtimeverification.com/kontrol)
+- [Formal Verification In Practice: Halmos, Hevm, Certora, and Ityfuzz](https://allthingsfuzzy.substack.com/p/formal-verification-in-practice-halmos?r=1860oo&utm_campaign=post&utm_medium=web)
+- [Examples](https://github.com/runtimeverification/kontrol-demo)
+
+### Where are tests
+
+- Kontrol in the test/FormalVerification folder
+
+### How to run them
+
+#### LiquidityMine.sol
+
+- test/FormalVerification/KontrolFV.t.sol
+  
+
+To use **Kontrol** effectively, follow these steps:
+
+
+
+Step 1: Recompile Your Project
+
+In most cases, you need to recompile your project:
+```bash
+forge build --force
+```
+
+Step 2: Compile Kontrol
+
+Next, compile Kontrol:
+```bash
+kontrol build
+```
+
+Step 3: Execute Tests
+
+You can execute your tests in several ways. Here is a clear method using the command:
+```bash
+kontrol prove --match-test KontrolFVLiquidityKontrol.<test> --max-depth 10000 --no-break-on-calls --max-frontier-parallel 2 --verbose
+```
+
+Step 4: [Investigate Test Failures](https://docs.runtimeverification.com/kontrol/guides/kontrol-example/k-control-flow-graph-kcfg)
+
+If you want to delve deeper into a test to understand why it failed, you can use the following commands for a detailed breakdown of the interaction:
+
+```bash
+kontrol view-kcfg 'KontrolFVLiquidityKontrol.testFuzz_Deposit(uint256,address)' --version <specify version>
+```
+or
+```bash
+kontrol view-kcfg KontrolFVLiquidityKontrol.testFuzz_Deposit
+```
+or
+```bash
+kontrol show KontrolFVLiquidityKontrol.testFuzz_Deposit
+```
+
+<img width="700" alt="image" src="image/Kontrol.png">
+
+

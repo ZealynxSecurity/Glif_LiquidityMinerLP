@@ -138,7 +138,7 @@ contract ItyfuzzInvariant is Test {
         assertEq(rewardTokenBalance + rewardTokensClaimed, totalRewardCap);
     }
 
-    function invariant_assert_NoResidualDust() public {
+    function invariant_assert_NoResidualDust() public view {
         uint256 accRewardsTotal = lm.accRewardsTotal();
         uint256 remainingBalance = rewardToken.balanceOf(address(lm));
         uint256 totalRewardCap = lm.totalRewardCap();
