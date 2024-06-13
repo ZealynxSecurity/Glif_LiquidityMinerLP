@@ -1,268 +1,120 @@
+# Smart Contract Audit Onboarding
 
-| Section | Description |
-|---------|-------------|
-| [Installation](#installation) | Setup and installation requirements. |
-| [Init](#init) | Initial setup and build commands. |
-| [Where to Find the Tests](#where-to-find-the-tests) | Locations of different test suites. |
-| [Testing Environments](#testing-environments) | Overview of testing environments: Foundry, Echidna, Halmos, Ityfuzz, Medusa, and Kontrol. |
-| [Foundry Tests](#foundry) | How to run Foundry tests and where to find them. |
-| [Echidna Tests](#echidna) | Setup and execution of Echidna tests. |
-| [Halmos Tests](#halmos) | Information on setting up and running Halmos tests. |
-| [Ityfuzz Tests](#ityfuzz) | Details on Ityfuzz testing environment and usage. |
-| [Medusa Tests](#medusa) | Instructions for setting up and running Medusa tests. |
-| [Kontrol Tests](#kontrol) | Guide to using Kontrol for test execution and debugging. |
+Below you will find a list of questions that are meant to be read as a starting point. Here you will find answer to many relevant questions you might have and relevant information about the dev team and the protocol itself.
 
+##  Communications
 
+- Who's going to be the main point of contact during the audit?
+Jonathan Schwartz 
+Telegram: @jpschwartz
 
-## Installation
+- What should be the main comms channel with the development team?
+Telegram
 
-To be able to use this repository, you need to have the following installed:
+- Should we share drafts of potentially severe issues in advance? Where? With whom?
+Yes, can share immediately with Jonathan
 
-- [Foundry]( https://book.getfoundry.sh/getting-started/installation)
-- [Echidna]( https://github.com/crytic/echidna?tab=readme-ov-file#installation)
-- [Medusa](https://github.com/crytic/medusa)
-- [Halmos](https://github.com/a16z/halmos/tree/main)
-- [Kontrol](https://github.com/runtimeverification/kontrol/tree/master)
-- [Ityfuzz](https://github.com/fuzzland/ityfuzz)
+- Would you rather have sync meetings during the course of the audit to share progress?
+No async is fine unless we need a call to discuss a specific issue in more detail - can do ad hoc
 
 
-## Init:
+##  Documentation
 
-```js
- git submodule update --init --recursive
-```
-```js
-sudo forge build -force
-```
-### You can find more information on this repository:
-- [Example implementation 1](https://github.com/ZealynxSecurity/Zealynx/blob/main/OurWork/Fuzzing-and-Formal-Verification/public-contests/Olas%20Protocol/Readme-Olas.md)
-- [Example implementation 2](https://github.com/ZealynxSecurity/BastionWallet)
-- [Example implementation 3](https://github.com/ZealynxSecurity/Portals-local/tree/main)
+- What's the available documentation? Where can we find it?
+The source code is well commented and I will walk the auditors through the code and architecture
 
-## Where to find the tests
+- Is the documentation up-to-date?
+Yes
 
-You can find the tests in various folders:
+- Does the documentation match the version of the system about to be audited?
+Yes
 
-`The "onchain" folder is used to compile Halmos tests as they are configured through mocks since native FV testing is not available for onchain contracts`
 
-- Foundry in the `test/Fuzz` folder
-- Echidna in the `src/Echidna` folder
-- Medusa in the `src/Echidna` folder
-- Halmos in the `test/FormalVerification` folder
-- Kontrol in the `test/FormalVerification` folder
-- Ityfuzz in the `test/Fuzz` folder
+##  Prior security work
 
+- Is this the first audit you're getting? If not, can you share who else audited it? Can we read previous audit reports?
+We've had 2 security researchers help review the code and write fuzz tests + formal verification
 
-# Testing Environments
+- Are you planning to formally verify parts of the system?
+Yes
 
+- Does your team run security-oriented tooling? Which? How (manually, CI, etc)?
+Yes - forge fuzz tests, Echidna + Medusa
 
-## Foundry
 
-### Resources to set up environment and understand approach
+##  Project
 
-- [Documentation](https://book.getfoundry.sh/)
-- [Create Invariant Tests for DeFi AMM Smart Contract](https://youtu.be/dWyJq8KGATg?si=JGYpABuOqR-1T6m3)
+- Is it possible to schedule a walkthrough of the code base with a developer? 45 min should do.
+Yes
 
-### Where are tests
+- Is the code forked from a well-known project? Or at least heavily inspired? Not necessarily as a whole – perhaps some parts. If so, what features did you add / remove? Why?
+No
 
-- Foundry in the `test/Fuzz` folder
+- Is the code already in production? If so, how should we proceed if we find a critical vulnerability?
+No - report to Jonathan Schwartz
 
-### How to run them
+- If the code isn't deployed, is it *about* to be deployed? When?
+Yes, probably july/august
 
-#### LiquidityMine.sol
+- To which chains are you deploying it?
+FEVM Filecoin
 
-- test/Fuzz/FuzzLiquidityMine.t.sol
-  
-```solidity
-forge test --mc FuzzLiquidityMine
-forge test --mc FuzzLiquidityMine --mt <test>
-```
+- Is the code frozen? Or do you expect changes during the audit? Where? When? Should we periodically incorporate those changes?
+There may be additional view functions added, but no core logic should be changed. 
 
+- What are the most sensitive parts of the codebase? What are you most fearful of?
+I'm not fearful of any parts of the code. I'm concerned that we're forgetting helpful functionality to provide better UX. Currently investigating issues with imprecision.
 
-## Echidna
 
-### Resources to set up environment and understand approach
+- What parts of the project would you consider the least tested?
+Complex scenario analysis.
 
-- [Documentation](https://secure-contracts.com/index.html)
-- [Properties](https://github.com/crytic/properties)
-- [echidna](https://github.com/crytic/echidna)
-- [Echidna Tutorial: #2 Fuzzing with Assertion Testing Mode](https://www.youtube.com/watch?v=em8xXB9RHi4&ab_channel=bloqarl)
-- [Echidna Tutorial: #1 Introduction to create Invariant tests with Solidity](https://www.youtube.com/watch?v=yUC3qzZlCkY&ab_channel=bloqarl)
-- [Echidna Tutorial: Use Echidna Cheatcodes while Fuzzing](https://www.youtube.com/watch?v=SSzh5GlqteI&ab_channel=bloqarl)
 
+- What parts of the code where the most difficult to tackle?
+Getting the math and precision precision 
 
-### Where are tests
+- Where did you make the most changes throughout the development process?
+The core math aspects, mostly in `updateAccounting` and the various view functions
 
-- Echidna in the `src/Echidna` folder
+- Are there any attack vectors you've already thought of? Are they documented? How's the code preventing them?
+I don't see any hack vectors currently, only potential annoying UX blockers and bad upgradeability.
 
-### How to run them
+- What are the most relevant integrations to consider? (oracles, DEXs, tokens, bridges, etc). Can we assume these external elements to work as documented?
+Filecoin FEVM has unique precompiles, so we use certain libraries to call FEVM precompiles, which are not standard on EVM. The FEVM addres space also has some unique quirks, however these things have been audited and used in production for over a year. There are no external integration besides the GLIF token, these external elements work as documented.
 
-#### LiquidityMine.sol
+- Are you implementing and/or following any known ERC?
+Not in this contract
 
-- src/Echidna/EchidnaLiquidityMine.sol
+- Are you using well-known libraries as dependencies? Which ones? Any specific reason why you decided to use X instead of Y?
+We're using Open Zeppelin libraries where applicable. We also use our own fork of the Open Zeppelin Ownable contract that handles Filecoin native addresses.
 
-```solidity
- echidna . --contract EchidnaLiquidityMine --config config.yaml
-```
+- Are there upgradeable contracts? Which ones? What does the upgrade process look like?
+The contracts are not upgradeable.
 
-## Medusa
 
-### Resources to set up environment and understand approach
+##  Roles
 
-- [Documentation](https://github.com/crytic/medusa)
-- [Properties](https://github.com/crytic/properties)
-- [echidna](https://github.com/crytic/echidna)
-- [Fuzzing Smart Contracts with MEDUSA](https://youtu.be/I4MP-KXJE54?si=LolEZWBvjbgqr0be)
+- What are the main roles of the system? Any permissioned role worth highlighting?
+The owner of the contract can set various parameters like the 
 
-### Where are tests
+- Can we assume whoever holds these roles is benevolent and always act in the well-being of the protocol and its users?
+Yes
 
-- Medusa in the `src/Echidna` folder
+- Who holds the permissioned roles in reality? EOAs, multisig wallets, governance, etc.
+Multisig wallet
 
-### How to run them
+- If there are centralized roles, are there any plans for progressive decentralization of the system? How would that look like?
+We're currently working on an Open Zeppelin Governor contract with the Tally team to make progress towards these efforts.
 
-#### LiquidityMine.sol
 
-- src/Echidna/EchidnaLiquidityMine.sol
+##  Report
 
+- What's your preferred format to have the report? Could be a single PDF, plain-text files, GitHub issues, etc.
+Whatever is easiest for the auditor, we're not worried so much about a polished report.
 
-```solidity
-medusa fuzz
-```
+- Is it necessary to deliver status reports as the audit progresses? How often?
+No we trust the auditors will get the job done
 
-## Halmos
-
-### Resources to set up environment and understand approach
-
-- [CheatCode](https://github.com/a16z/halmos-cheatcodes)
-- [Documentation](https://github.com/a16z/halmos-cheatcodes)
-- [Formal Verification In Practice: Halmos, Hevm, Certora, and Ityfuzz](https://allthingsfuzzy.substack.com/p/formal-verification-in-practice-halmos?r=1860oo&utm_campaign=post&utm_medium=web)
-- [Examples](https://github.com/a16z/halmos/tree/main/examples)
-
-### Where are tests
-
-- Halmos in the test/FormalVerification folder
-
-### How to run them
-
-#### LiquidityMine.sol
-
-- test/FormalVerification/HalmosFV.t.sol
-  
-```solidity
-halmos --contract HalmosFVLiquidityMine --solver-timeout-assertion 0 
-halmos --contract HalmosFVLiquidityMine --function <test> --solver-timeout-assertion 0
-```
-
-
-## Ityfuzz
-
-### Resources to set up environment and understand approach
-
-- [GitHub](https://github.com/fuzzland/ityfuzz/tree/master)
-- [Documentation](https://docs.ityfuzz.rs/)
-- [Formal Verification In Practice: Halmos, Hevm, Certora, and Ityfuzz](https://allthingsfuzzy.substack.com/p/formal-verification-in-practice-halmos?r=1860oo&utm_campaign=post&utm_medium=web)
-- [Examples](https://github.com/a16z/halmos/tree/main/examples)
-- [Video examples](https://mirror.xyz/0x44bdEeB120E0fCfC40fad73883C8f4D60Dfd5A73/IQgirpcecGOqfWRozQ0vd8e5mLLjWfX5Pif2Fbynu6c)
-
-### Where are tests
-
-- Ityfuzz in the `test/Fuzz` folder
-
-### How to run them
-
-We can run ityfuzz in two main ways:
-
-1. Running ityfuzz on Invariant Tests
-Use ityfuzz to run on top of the invariant tests you have already written. This method leverages the existing invariant checks in your tests.
-
-2. [Using Inline Assertions with ityfuzz](https://github.com/fuzzland/ityfuzz/blob/master/solidity_utils/lib.sol)
-
-To use [inline assertions with ityfuzz](https://github.com/fuzzland/ityfuzz/blob/960e9e148d376615df776529ddaedba93af0dced/tests/evm/complex-condition/test.sol), follow these steps:
-
-Step 1: Incorporate the solidity_utils library into your contract (LiquidityMine.sol):
-
-```solidity
-import "lib/solidity_utils/lib.sol";
-```
-
-Step 2: Add the cheat code bug() at the points in your code where you want to verify an invariant.
-
-
-#### LiquidityMine.sol
-
-- test/Fuzz/ItyfuzzInvariant.t.sol
-  
-```solidity
-ityfuzz evm -m ItyfuzzInvariant -- forge build
-ityfuzz evm -m test/Fuzz/ItyfuzzInvariant.t.sol:ItyfuzzInvariant -- forge test --mc ItyfuzzInvariant --mt <test>
-
-```
-
-
-<img width="700" alt="image" src="image/Ity.png">
-
-
-## Kontrol
-
-### Resources to set up environment and understand approach
-
-- [CheatCode](https://github.com/runtimeverification/kontrol-cheatcodes/tree/master)
-- [Documentation](https://docs.runtimeverification.com/kontrol)
-- [Formal Verification In Practice: Halmos, Hevm, Certora, and Ityfuzz](https://allthingsfuzzy.substack.com/p/formal-verification-in-practice-halmos?r=1860oo&utm_campaign=post&utm_medium=web)
-- [Examples](https://github.com/runtimeverification/kontrol-demo)
-
-### Where are tests
-
-- Kontrol in the test/FormalVerification folder
-
-### How to run them
-
-#### LiquidityMine.sol
-
-- test/FormalVerification/KontrolFV.t.sol
-  
-
-To use **Kontrol** effectively, follow these steps:
-
-
-
-Step 1: Recompile Your Project
-
-In most cases, you need to recompile your project:
-```bash
-forge build --force
-```
-
-Step 2: Compile Kontrol
-
-Next, compile Kontrol:
-```bash
-kontrol build
-```
-
-Step 3: Execute Tests
-
-You can execute your tests in several ways. Here is a clear method using the command:
-```bash
-kontrol prove --match-test KontrolFVLiquidityKontrol.<test> --max-depth 10000 --no-break-on-calls --max-frontier-parallel 2 --verbose
-```
-
-Step 4: [Investigate Test Failures](https://docs.runtimeverification.com/kontrol/guides/kontrol-example/k-control-flow-graph-kcfg)
-
-If you want to delve deeper into a test to understand why it failed, you can use the following commands for a detailed breakdown of the interaction:
-
-```bash
-kontrol view-kcfg 'KontrolFVLiquidityKontrol.testFuzz_Deposit(uint256,address)' --version <specify version>
-```
-or
-```bash
-kontrol view-kcfg KontrolFVLiquidityKontrol.testFuzz_Deposit
-```
-or
-```bash
-kontrol show KontrolFVLiquidityKontrol.testFuzz_Deposit
-```
-
-<img width="700" alt="image" src="image/Kontrol.png">
-
+- Are you planning to make the report public?
+Depends on what we find 
 
