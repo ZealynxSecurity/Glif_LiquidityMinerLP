@@ -9,8 +9,8 @@
 | [Echidna Tests](#echidna) | Setup and execution of Echidna tests. |
 | [Halmos Tests](#halmos) | Information on setting up and running Halmos tests. |
 | [Ityfuzz Tests](#ityfuzz) | Details on Ityfuzz testing environment and usage. |
-| [Medusa Tests](#Medusa) | Instructions for setting up and running Medusa tests. |
-| [Kontrol Tests](#Kontrol) | Guide to using Kontrol for test execution and debugging. |
+| [Medusa Tests](#medusa) | Instructions for setting up and running Medusa tests. |
+| [Kontrol Tests](#kontrol) | Guide to using Kontrol for test execution and debugging. |
 
 
 
